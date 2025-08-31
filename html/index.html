@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f7f9;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #main-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 100vw;
+            overflow: hidden;
+        }
+
+        .controls-area {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 15px 20px;
+            background-color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .dropdown-container {
+            position: relative;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background-color: white;
+            min-width: 250px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            z-index: 1;
+            padding: 12px;
+            border-radius: 8px;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .dropdown-content.show {
+            display: flex;
+        }
+
+        .dropdown-content input[type="text"] {
+            padding: 8px;
+            font-size: 0.9rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .dropdown-content button {
+            width: 100%;
+        }
+
+        .input-group, .action-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        #speed-input, #interval-input {
+            width: 80px;
+            padding: 8px;
+            font-size: 0.9rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        button {
+            padding: 10px 15px;
+            font-size: 0.9rem;
+            color: white;
+            background-color: #3498db;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            white-space: nowrap;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        #split-container {
+            display: flex;
+            flex-grow: 1;
+            position: relative;
+        }
+
+        #map, #street-view {
+            height: 100%;
+            transition: flex 0.3s ease;
+            position: relative;
+        }
+
+        #street-view {
+            flex-grow: 0.7;
+            flex-basis: 70%;
+        }
+
+        #map {
+            flex-grow: 0.3;
+            flex-basis: 30%;
+        }
+
+        .splitter {
+            width: 8px;
+            background-color: #bdc3c7;
+            cursor: col-resize;
+            z-index: 2;
+        }
+
+        #message-box {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #e74c3c;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .mode-switcher {
+            display: flex;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .mode-switcher button {
+            background-color: white;
+            color: #3498db;
+            padding: 8px 12px;
+            border-radius: 0;
+            box-shadow: none;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .mode-switcher button.active {
+            background-color: #3498db;
+            color: white;
+        }
+
+        #info-display {
+            background-color: #2c3e50;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px 30px;
+            justify-content: space-between;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            font-size: 0.9rem;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #bdc3c7;
+        }
+        .info-value {
+            font-size: 1.1rem;
+        }
+
+        /* Responsive design for mobile */
+        @media (max-width: 767px) {
+            .controls-area {
+                padding: 10px;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .input-group, .action-group {
+                flex-direction: column;
+                gap: 5px;
+                width: 100%;
+            }
+
+            .input-group label {
+                width: 100%;
+                text-align: left;
+            }
+
+            #origin-input, #destination-input, #speed-input, #interval-input, button {
+                width: 100%;
+            }
+            .dropdown-content {
+                min-width: auto;
+                width: 100%;
+            }
+
+            #split-container {
+                flex-direction: column;
+            }
+
+            #street-view, #map {
+                flex-basis: auto;
+                height: 50%;
+                width: 100%;
+            }
+
+            .splitter {
+                height: 8px;
+                width: 100%;
+                cursor: row-resize;
+            }
+            .mode-switcher {
+                width: 100%;
+            }
+
+            #info-display {
+                gap: 10px;
+                padding: 10px;
+                justify-content: center;
+            }
+            .info-item {
+                flex-basis: 45%;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="main-container">
+        <div class="controls-area">
+            <div class="dropdown-container">
+                <button id="route-settings-button">経路設定</button>
+                <div class="dropdown-content" id="route-settings-dropdown">
+                    <input type="text" id="origin-input" placeholder="出発地: 例. 東京駅">
+                    <input type="text" id="destination-input" placeholder="目的地: 例. 渋谷スクランブル交差点">
+                    <div class="mode-switcher">
+                        <button id="driving-mode-btn" data-mode="DRIVING" class="active">自動車</button>
+                        <button id="bicycling-mode-btn" data-mode="BICYCLING">自転車</button>
+                        <button id="walking-mode-btn" data-mode="WALKING">徒歩</button>
+                    </div>
+                    <label for="interval-input">補間間隔 (m):</label>
+                    <input type="number" id="interval-input" value="5" min="1" max="100">
+                    <button id="route-button">経路を検索</button>
+                    <button id="load-gpx-button">GPXを読み込む</button>
+                </div>
+                <input type="file" id="gpx-file-input" accept=".gpx" style="display: none;">
+            </div>
+            <div class="action-group">
+                <label for="speed-input">速度 (km/時):</label>
+                <input type="number" id="speed-input" value="0" min="1" max="60">
+                <button id="toggle-tour-button" disabled>巡回開始</button>
+                <button id="ble-connect-button">パワーソースに接続</button>
+                <button id="hr-connect-button">心拍計に接続</button>
+                <button id="log-toggle-button">ログ開始</button>
+            </div>
+        </div>
+        <div id="info-display">
+            <div class="info-item">
+                <span class="info-label">移動距離</span>
+                <span class="info-value" id="dist-traveled">0.00 km</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">経路全体</span>
+                <span class="info-value" id="total-dist">0.00 km</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">移動時間</span>
+                <span class="info-value" id="time-elapsed">00:00:00</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">残り時間</span>
+                <span class="info-value" id="time-remaining">00:00:00</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">標高</span>
+                <span class="info-value" id="elevation">N/A</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">勾配</span>
+                <span class="info-value" id="gradient">N/A</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">パワー</span>
+                <span class="info-value" id="power-display">0 W</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">ケイデンス</span>
+                <span class="info-value" id="cadence-display">0 rpm</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">心拍数</span>
+                <span class="info-value" id="hr-display">0 bpm</span>
+            </div>
+        </div>
+        <div id="split-container">
+            <div id="street-view"></div>
+            <div class="splitter" id="splitter"></div>
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <div id="message-box"></div>
+
+    <script>
+        const GOOGLE_MAPS_API_KEY = 'AIzaSyC7uCB2u3BM1kA2xr-qiyrLTHjOrZfIKdo';
+
+        /**
+         * メッセージボックスにメッセージを表示します。
+         * @param {string} message - 表示するメッセージ
+         * @param {boolean} isError - エラーメッセージかどうか
+         */
+        function showMessage(message, isError = true) {
+            const messageBox = document.getElementById('message-box');
+            messageBox.textContent = message;
+            messageBox.style.backgroundColor = isError ? '#e74c3c' : '#27ae60';
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.opacity = '1';
+            }, 10);
+            setTimeout(() => {
+                messageBox.style.opacity = '0';
+                setTimeout(() => {
+                    messageBox.style.display = 'none';
+                }, 500);
+            }, 3000);
+        }
+
+        /**
+         * 移動平均法を用いて標高データを平滑化します。
+         * @param {number[]} elevations - 元の標поデータの配列
+         * @param {number} windowSize - 平滑化のためのウィンドウサイズ（奇数を推奨）
+         * @returns {number[]} - 平滑化された標高データの配列
+         */
+        function smoothElevations(elevations, windowSize) {
+            if (windowSize <= 1) {
+                return elevations;
+            }
+            const smoothed = [];
+            const halfWindow = Math.floor(windowSize / 2);
+            for (let i = 0; i < elevations.length; i++) {
+                const start = Math.max(0, i - halfWindow);
+                const end = Math.min(elevations.length - 1, i + halfWindow);
+                let sum = 0;
+                for (let j = start; j <= end; j++) {
+                    sum += elevations[j];
+                }
+                smoothed.push(sum / (end - start + 1));
+            }
+            return smoothed;
+        }
+
+        /**
+         * 2つの緯度/経度座標間の距離をメートル単位で計算します。
+         * @param {google.maps.LatLng} p1 - 最初の座標
+         * @param {google.maps.LatLng} p2 - 2番目の座標
+         * @returns {number} - 2点間の距離（メートル）
+         */
+        function getDistance(p1, p2) {
+            const R = 6371e3;
+            const φ1 = p1.lat() * Math.PI / 180;
+            const φ2 = p2.lat() * Math.PI / 180;
+            const Δφ = (p2.lat() - p1.lat()) * Math.PI / 180;
+            const Δλ = (p2.lng() - p1.lng()) * Math.PI / 180;
+
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return R * c;
+        }
+
+        /**
+         * 2点間で補間された緯度/経度座標を計算します。
+         * @param {google.maps.LatLng} from - 開始点
+         * @param {google.maps.LatLng} to - 終了点
+         * @param {number} fraction - 補間率 (0-1)
+         * @returns {google.maps.LatLng} - 補間された座標
+         */
+        function interpolate(from, to, fraction) {
+            const lat = from.lat() + (to.lat() - from.lat()) * fraction;
+            const lng = from.lng() + (to.lng() - from.lng()) * fraction;
+            return new google.maps.LatLng(lat, lng);
+        }
+
+        /**
+         * 2点間の進行方向（ヘディング）を度単位で計算します。
+         * @param {google.maps.LatLng} from - 開始点
+         * @param {google.maps.LatLng} to - 終了点
+         * @returns {number} - 進行方向（度）
+         */
+        function getHeading(from, to) {
+            if (from.lat() === to.lat() && from.lng() === to.lng()) {
+                return 0;
+            }
+
+            const lat1 = from.lat() * Math.PI / 180;
+            const lon1 = from.lng() * Math.PI / 180;
+            const lat2 = to.lat() * Math.PI / 180;
+            const lon2 = to.lng() * Math.PI / 180;
+
+            const dLon = lon2 - lon1;
+            const y = Math.sin(dLon) * Math.cos(lat2);
+            const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+            let heading = Math.atan2(y, x) * 180 / Math.PI;
+
+            heading = (heading + 360) % 360;
+            return heading;
+        }
+
+        /**
+         * 秒数を hh:mm:ss 形式にフォーマットします。
+         * @param {number} seconds - 秒数
+         * @returns {string} - フォーマットされた時間文字列
+         */
+        function formatTime(seconds) {
+            const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+            const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+            const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        }
+
+        /**
+         * UI上の情報を更新します。
+         */
+        function updateInfoDisplay() {
+            const totalDistanceKm = (totalDistance / 1000).toFixed(2);
+            const distanceTraveledKm = (distanceTraveled / 1000).toFixed(2);
+            const timeElapsed = totalTimeElapsed + (Date.now() - tourStartTime) / 1000;
+
+            const remainingDistance = Math.max(0, totalDistance - distanceTraveled);
+            const speedKmH = parseFloat(document.getElementById('speed-input').value);
+            let timeRemaining = 0;
+            if (speedKmH > 0) {
+                timeRemaining = (remainingDistance / 1000) / speedKmH * 3600;
+            }
+
+            document.getElementById('total-dist').textContent = `${totalDistanceKm} km`;
+            document.getElementById('dist-traveled').textContent = `${distanceTraveledKm} km`;
+            document.getElementById('time-elapsed').textContent = formatTime(timeElapsed);
+            document.getElementById('time-remaining').textContent = formatTime(timeRemaining);
+
+            if (routeElevations.length > 0 && currentPointIndex < routeElevations.length) {
+                const currentElevation = routeElevations[currentPointIndex];
+                document.getElementById('elevation').textContent = `${currentElevation.toFixed(0)} m`;
+
+                // より安定した勾配を計算するため、現在地の前後の複数点を考慮する
+                const lookbehind = 5; // 手前を何点見るか
+                const lookahead = 5;  // 先を何点見るか
+
+                const startIndex = Math.max(0, currentPointIndex - lookbehind);
+                const endIndex = Math.min(routePoints.length - 1, currentPointIndex + lookahead);
+
+                if (startIndex < endIndex) {
+                    const startElevation = routeElevations[startIndex];
+                    const endElevation = routeElevations[endIndex];
+
+                    let totalSegmentDistance = 0;
+                    for (let i = startIndex; i < endIndex; i++) {
+                        totalSegmentDistance += getDistance(routePoints[i], routePoints[i+1]);
+                    }
+
+                    const elevationChange = endElevation - startElevation;
+
+                    if (totalSegmentDistance > 0) {
+                        currentGradient = (elevationChange / totalSegmentDistance) * 100;
+                    } else { currentGradient = 0; }
+                } else {
+                    currentGradient = 0; // 区間が取れない場合は勾配0
+                }
+                document.getElementById('gradient').textContent = `${currentGradient.toFixed(0)} %`;
+            } else {
+                 document.getElementById('elevation').textContent = `N/A`;
+                 document.getElementById('gradient').textContent = `N/A`;
+                 currentGradient = 0;
+            }
+        }
+
+        let map, panorama;
+        let directionsService, directionsRenderer, elevationService;
+        let routePoints = [];
+        let routeElevations = [];
+        let gpxRoutePolyline = null;
+        let tourInterval;
+        let currentLocationMarker;
+        let isTourRunning = false;
+        let currentPointIndex = 0;
+        let startMarker, endMarker;
+        let totalDistance = 0;
+        let distanceTraveled = 0;
+        let tourStartTime = 0;
+        let totalTimeElapsed = 0;
+        let currentGradient = 0;
+        let currentTourSpeedKmH = 0;
+        let isLogging = false;
+        let logData = [];
+        let currentPower = 0;
+        let currentCadence = 0;
+        let currentHeartRate = 0;
+        let speedBuffer = [];
+        const SPEED_BUFFER_SIZE = 10; // 速度の平均化に使うサンプル数。大きいほど滑らかになるが反応は遅くなる
+
+
+        let bleDevice = null;
+        let ftmsCharacteristic = null;
+        let hrDevice = null;
+        let hrCharacteristic = null;
+        const FTMS_SERVICE_UUID = 'fitness_machine';
+        const INDOOR_BIKE_DATA_UUID = 'indoor_bike_data';
+
+        const HR_SERVICE_UUID = 'heart_rate';
+        const HR_MEASUREMENT_UUID = 'heart_rate_measurement';
+
+        // 速度計算用の定数（適宜調整可能）
+        const BASE_RESISTANCE = 15; // 平地での基本抵抗値
+        const GRADIENT_FACTOR = 0.5; // 勾配による抵抗値の増加率
+        const SCALING_FACTOR = 3;   // パワーから速度への換算係数
+        const MAX_SPEED_KMH = 60;
+        const MIN_SPEED_KMH = 1;
+
+        const routeSettingsButton = document.getElementById('route-settings-button');
+        const routeSettingsDropdown = document.getElementById('route-settings-dropdown');
+        const routeButton = document.getElementById('route-button');
+        const loadGpxButton = document.getElementById('load-gpx-button');
+        const gpxFileInput = document.getElementById('gpx-file-input');
+        const toggleTourButton = document.getElementById('toggle-tour-button');
+        const bleConnectButton = document.getElementById('ble-connect-button');
+        const hrConnectButton = document.getElementById('hr-connect-button');
+        const logToggleButton = document.getElementById('log-toggle-button');
+        const originInput = document.getElementById('origin-input');
+        const destinationInput = document.getElementById('destination-input');
+        const intervalInput = document.getElementById('interval-input');
+        const speedInput = document.getElementById('speed-input');
+        const travelModeButtons = document.querySelectorAll('.mode-switcher button');
+        let currentTravelMode = 'DRIVING';
+
+        const defaultSettings = {
+            'DRIVING': { speed: 40, interval: 5 },
+            'BICYCLING': { speed: 15, interval: 3 },
+            'WALKING': { speed: 4, interval: 1 }
+        };
+
+        // ドロップダウンの表示/非表示を切り替える
+        routeSettingsButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            routeSettingsDropdown.classList.toggle('show');
+        });
+
+        // ドロップダウン外をクリックしたら閉じる
+        window.addEventListener('click', (event) => {
+            if (!routeSettingsDropdown.contains(event.target) && !routeSettingsButton.contains(event.target)) {
+                routeSettingsDropdown.classList.remove('show');
+            }
+        });
+
+        /**
+         * 巡回モードを設定し、UIを更新します。
+         * @param {string} mode - 巡回モード ('DRIVING', 'BICYCLING', 'WALKING')
+         */
+        function setTravelMode(mode) {
+            currentTravelMode = mode;
+            travelModeButtons.forEach(btn => {
+                if (btn.dataset.mode === mode) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            intervalInput.value = defaultSettings[mode].interval;
+        }
+
+        travelModeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                setTravelMode(btn.dataset.mode);
+            });
+        });
+
+        /**
+         * マップ上のすべてのマーカーをクリアします。
+         */
+        function clearMarkers() {
+            if (startMarker) startMarker.setMap(null);
+            if (endMarker) endMarker.setMap(null);
+            if (currentLocationMarker) currentLocationMarker.setMap(null);
+            startMarker = null;
+            endMarker = null;
+            currentLocationMarker = null;
+        }
+
+        /**
+         * 巡回状態を初期化します。
+         */
+        function resetTourState() {
+            stopTour();
+            clearMarkers();
+            directionsRenderer.setDirections({ routes: [] });
+            if (gpxRoutePolyline) {
+                gpxRoutePolyline.setMap(null);
+                gpxRoutePolyline = null;
+            }
+            routePoints = [];
+            routeElevations = [];
+            totalDistance = 0;
+            distanceTraveled = 0;
+            currentPointIndex = 0;
+            speedInput.value = 0;
+            document.getElementById('elevation').textContent = `N/A`;
+            document.getElementById('gradient').textContent = `N/A`;
+            updateInfoDisplay();
+            toggleTourButton.disabled = true;
+        }
+
+        /**
+         * 経路データを処理し、マップとストリートビューを初期化します。
+         * @param {google.maps.LatLng[]} path - 経路の座標の配列
+         */
+        async function processRoute(path) {
+            routePoints = path;
+            if (routePoints.length === 0) {
+                showMessage('この経路のストリートビューデータが見つかりませんでした。');
+                return;
+            }
+
+            const firstPoint = routePoints[0];
+            const lastPoint = routePoints[routePoints.length - 1];
+
+            try {
+                const sampleLimit = 512;
+                let elevationResults = [];
+                for (let i = 0; i < routePoints.length; i += sampleLimit) {
+                    const chunk = routePoints.slice(i, i + sampleLimit);
+                    const { results } = await elevationService.getElevationAlongPath({
+                        path: chunk,
+                        samples: chunk.length,
+                    });
+                    elevationResults = elevationResults.concat(results.map(result => result.elevation));
+                }
+                // 標高データをスムージングして、勾配計算の急な変動を抑える
+                const smoothingWindowSize = 15; // ウィンドウサイズ（奇数を推奨）。大きいほど滑らかになる。
+                routeElevations = smoothElevations(elevationResults, smoothingWindowSize);
+
+                showMessage('全経路の標高データを取得しました。', false);
+            } catch (error) {
+                showMessage('全経路の標高データを取得できませんでした。開始地点の標高のみ表示します。', true);
+                console.error("全経路の標高取得に失敗しました:", error);
+                routeElevations = [];
+                try {
+                    const { results } = await elevationService.getElevationForLocations({
+                        locations: [firstPoint]
+                    });
+                    if (results && results.length > 0) {
+                        routeElevations.push(results[0].elevation);
+                    }
+                } catch (e) {
+                    console.error("出発地点の標高取得に失敗しました:", e);
+                }
+            }
+
+            for(let i = 0; i < routePoints.length - 1; i++) {
+                totalDistance += getDistance(routePoints[i], routePoints[i+1]);
+            }
+
+            startMarker = new google.maps.Marker({
+                map: map,
+                position: firstPoint,
+                label: 'A',
+                title: '出発地',
+            });
+            endMarker = new google.maps.Marker({
+                map: map,
+                position: lastPoint,
+                label: 'B',
+                title: '目的地',
+            });
+            currentLocationMarker = new google.maps.Marker({
+                map: map,
+                title: '現在地',
+                icon: {
+                    path: 'M -5,0 5,0 M 0,-5 0,5',
+                    scale: 4,
+                    strokeColor: '#e74c3c',
+                    strokeWeight: 2,
+                    fillColor: '#e74c3c',
+                    fillOpacity: 1,
+                },
+                position: firstPoint,
+                zIndex: 9999,
+            });
+
+            if (panorama) {
+                panorama.setPosition(firstPoint);
+                map.panTo(firstPoint);
+
+                try {
+                    if (routePoints.length > 1) {
+                        const heading = getHeading(routePoints[0], routePoints[1]);
+                        if (!isNaN(heading)) {
+                            panorama.setPov({ heading: heading, pitch: 0, zoom: 1 });
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error setting initial POV:", e);
+                }
+            }
+
+            showMessage('経路が見つかりました！巡回を開始できます。', false);
+            updateInfoDisplay();
+            toggleTourButton.disabled = false;
+        }
+
+        /**
+         * ユーザー入力に基づいて経路を計算し表示します。
+         */
+        function calculateAndDisplayRoute() {
+            resetTourState();
+
+            const origin = originInput.value;
+            const destination = destinationInput.value;
+            const interpolationInterval = parseFloat(intervalInput.value);
+
+            if (!origin || !destination) {
+                showMessage('出発地と目的地を入力してください。');
+                return;
+            }
+            if (isNaN(interpolationInterval) || interpolationInterval <= 0) {
+                showMessage('有効な補間間隔を入力してください。');
+                return;
+            }
+
+            directionsService.route({
+                origin: origin,
+                destination: destination,
+                travelMode: google.maps.TravelMode[currentTravelMode],
+            }).then((response) => {
+                if (response.status === 'OK') {
+                    const overviewPath = response.routes[0].overview_path;
+                    directionsRenderer.setDirections(response);
+
+                    const interpolatedPath = [];
+                    for (let i = 0; i < overviewPath.length - 1; i++) {
+                        const p1 = overviewPath[i];
+                        const p2 = overviewPath[i + 1];
+                        const distance = getDistance(p1, p2);
+                        const segments = Math.ceil(distance / interpolationInterval);
+                        for (let j = 0; j < segments; j++) {
+                            const fraction = j / segments;
+                            interpolatedPath.push(interpolate(p1, p2, fraction));
+                        }
+                    }
+                    interpolatedPath.push(overviewPath[overviewPath.length - 1]);
+
+                    processRoute(interpolatedPath);
+                } else {
+                    throw new Error(`経路検索に失敗しました: ${response.status}`);
+                }
+            }).catch((e) => {
+                showMessage('経路が見つかりませんでした。場所を確認してください。');
+            });
+        }
+
+        loadGpxButton.addEventListener('click', () => {
+            gpxFileInput.click();
+        });
+
+        gpxFileInput.addEventListener('change', (event) => {
+            resetTourState();
+
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const gpxText = e.target.result;
+                    const parser = new DOMParser();
+                    const gpxDoc = parser.parseFromString(gpxText, 'application/xml');
+
+                    const trkpts = gpxDoc.querySelectorAll('trkpt');
+                    if (trkpts.length === 0) {
+                        showMessage('GPXファイルにトラックポイントが見つかりませんでした。');
+                        return;
+                    }
+
+                    const gpxPoints = [];
+                    trkpts.forEach(pt => {
+                        const lat = parseFloat(pt.getAttribute('lat'));
+                        const lon = parseFloat(pt.getAttribute('lon'));
+                        if (!isNaN(lat) && !isNaN(lon)) {
+                            gpxPoints.push(new google.maps.LatLng(lat, lon));
+                        }
+                    });
+
+                    if (gpxPoints.length === 0) {
+                        showMessage('GPXファイルから有効な座標を抽出できませんでした。');
+                        return;
+                    }
+
+                    const interpolationInterval = parseFloat(intervalInput.value);
+                    const interpolatedPath = [];
+                    for (let i = 0; i < gpxPoints.length - 1; i++) {
+                        const p1 = gpxPoints[i];
+                        const p2 = gpxPoints[i + 1];
+                        const distance = getDistance(p1, p2);
+                        const segments = Math.ceil(distance / interpolationInterval);
+                        for (let j = 0; j < segments; j++) {
+                            const fraction = j / segments;
+                            interpolatedPath.push(interpolate(p1, p2, fraction));
+                        }
+                    }
+                    interpolatedPath.push(gpxPoints[gpxPoints.length - 1]);
+
+                    gpxRoutePolyline = new google.maps.Polyline({
+                        path: interpolatedPath,
+                        geodesic: true,
+                        strokeColor: '#3498db',
+                        strokeOpacity: 0.8,
+                        strokeWeight: 5
+                    });
+                    gpxRoutePolyline.setMap(map);
+
+                    processRoute(interpolatedPath);
+                } catch (error) {
+                    showMessage('GPXファイルの解析中にエラーが発生しました。');
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        function toggleTour() {
+            if (isTourRunning) {
+                stopTour();
+            } else {
+                startTour();
+            }
+        }
+
+        /**
+         * 新しい速度に基づいて巡回タイマーを更新します。
+         * @param {number} newSpeedKmH - 新しい速度 (km/時)
+         */
+        function updateTourInterval(newSpeedKmH) {
+            if (!isTourRunning) return;
+
+            clearInterval(tourInterval);
+
+            const interval = parseFloat(intervalInput.value);
+            const newSpeedMs = newSpeedKmH * 1000 / 3600;
+            let newIntervalTime = 0;
+            if (newSpeedMs > 0) {
+                newIntervalTime = (interval / newSpeedMs) * 1000;
+            } else {
+                newIntervalTime = 1000; // 速度が0の場合でも更新を続ける
+            }
+
+            tourInterval = setInterval(() => {
+                if (currentPointIndex >= routePoints.length - 1) {
+                    stopTour();
+                    showMessage('目的地に到達しました。', false);
+                    return;
+                }
+
+                distanceTraveled += getDistance(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
+                currentPointIndex++;
+
+                const newPosition = routePoints[currentPointIndex];
+
+                if (panorama) {
+                    try {
+                        if (currentPointIndex + 1 < routePoints.length) {
+                            const heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
+                            if (!isNaN(heading)) {
+                                const pov = { heading: heading, pitch: 0, zoom: 1 };
+                                console.log("Attempting to set POV with:", pov);
+                                panorama.setPov(pov);
+                            } else {
+                                console.error("Invalid heading value, skipping setPov call:", heading);
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Error setting POV during tour:", e);
+                    }
+                }
+
+                panorama.setPosition(newPosition);
+                currentLocationMarker.setPosition(newPosition);
+                map.panTo(newPosition);
+                updateInfoDisplay();
+
+                if (isLogging && routePoints[currentPointIndex]) {
+                    logData.push({
+                        timestamp: new Date().toISOString(),
+                        position: routePoints[currentPointIndex],
+                        power: currentPower,
+                        cadence: currentCadence,
+                        heartRate: currentHeartRate,
+                        distance: distanceTraveled,
+                        speed: currentTourSpeedKmH
+                    });
+                }
+
+
+            }, newIntervalTime);
+        }
+
+        function startTour() {
+            if (isTourRunning) {
+                stopTour();
+            }
+
+            if (routePoints.length === 0) {
+                showMessage('まず経路を検索するかGPXファイルを読み込んでください。');
+                return;
+            }
+
+            const speed = parseFloat(speedInput.value);
+            const interval = parseFloat(intervalInput.value);
+
+            if (isNaN(speed) || speed <= 0) {
+                 showMessage('有効な速度を入力してください。', true);
+                 return;
+            }
+            if (isNaN(interval) || interval <= 0) {
+                showMessage('有効な補間間隔を入力してください。');
+                return;
+            }
+
+            isTourRunning = true;
+            toggleTourButton.textContent = '巡回停止';
+            tourStartTime = Date.now();
+
+            map.setZoom(17);
+
+            updateTourInterval(speed);
+        }
+
+        function stopTour() {
+            clearInterval(tourInterval);
+            isTourRunning = false;
+            if (tourStartTime > 0) {
+                totalTimeElapsed = totalTimeElapsed + (Date.now() - tourStartTime) / 1000;
+                console.log(formatTime(Date.now()));
+                console.log(formatTime(tourStartTime));
+                console.log(formatTime(totalTimeElapsed));
+            }
+            toggleTourButton.textContent = '巡回開始';
+        }
+
+        async function connectToBleDevice() {
+            if (bleDevice && bleDevice.gatt.connected) {
+                disconnectFromBleDevice();
+                return;
+            }
+
+            try {
+                showMessage('デバイスを検索中です...', false);
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: [FTMS_SERVICE_UUID] }]
+                });
+
+                showMessage('デバイスに接続中です...', false);
+                const server = await bleDevice.gatt.connect();
+                showMessage('GATTサーバーに接続しました。', false);
+
+                const ftmsService = await server.getPrimaryService(FTMS_SERVICE_UUID);
+                ftmsCharacteristic = await ftmsService.getCharacteristic(INDOOR_BIKE_DATA_UUID);
+
+                await ftmsCharacteristic.startNotifications();
+                ftmsCharacteristic.addEventListener('characteristicvaluechanged', handleFTMSData);
+
+                showMessage('FTMSデバイスに接続しました。', false);
+                bleConnectButton.textContent = '接続解除';
+                bleConnectButton.style.backgroundColor = '#e74c3c';
+
+            } catch (error) {
+                console.error("Bluetooth接続に失敗しました:", error);
+                showMessage(`Bluetooth接続エラー: ${error.message}`);
+                bleConnectButton.textContent = 'パワーソースに接続';
+                bleConnectButton.style.backgroundColor = '#3498db';
+                bleDevice = null;
+                ftmsCharacteristic = null;
+            }
+        }
+
+        function disconnectFromBleDevice() {
+            if (bleDevice && bleDevice.gatt.connected) {
+                bleDevice.gatt.disconnect();
+                showMessage('デバイスから切断しました。', false);
+            }
+            if (ftmsCharacteristic) {
+                ftmsCharacteristic.removeEventListener('characteristicvaluechanged', handleFTMSData);
+                ftmsCharacteristic = null;
+            }
+            speedBuffer = []; // 速度バッファをリセット
+            bleConnectButton.textContent = 'パワーソースに接続';
+            bleConnectButton.style.backgroundColor = '#3498db';
+            document.getElementById('power-display').textContent = '0 W';
+            document.getElementById('cadence-display').textContent = '0 rpm';
+            stopTour(); // 切断時に巡回を停止
+        }
+
+        async function connectToHrDevice() {
+            if (hrDevice && hrDevice.gatt.connected) {
+                disconnectFromHrDevice();
+                return;
+            }
+
+            try {
+                showMessage('心拍計を検索中です...', false);
+                hrDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: [HR_SERVICE_UUID] }]
+                });
+
+                showMessage('心拍計に接続中です...', false);
+                const server = await hrDevice.gatt.connect();
+                showMessage('GATTサーバーに接続しました。', false);
+
+                const hrService = await server.getPrimaryService(HR_SERVICE_UUID);
+                hrCharacteristic = await hrService.getCharacteristic(HR_MEASUREMENT_UUID);
+
+                await hrCharacteristic.startNotifications();
+                hrCharacteristic.addEventListener('characteristicvaluechanged', handleHRData);
+
+                showMessage('心拍計に接続しました。', false);
+                hrConnectButton.textContent = '接続解除';
+                hrConnectButton.style.backgroundColor = '#e74c3c';
+
+            } catch (error) {
+                console.error("心拍計の接続に失敗しました:", error);
+                showMessage(`心拍計接続エラー: ${error.message}`);
+                hrConnectButton.textContent = '心拍計に接続';
+                hrConnectButton.style.backgroundColor = '#3498db';
+                hrDevice = null;
+                hrCharacteristic = null;
+            }
+        }
+
+        function disconnectFromHrDevice() {
+            if (hrDevice && hrDevice.gatt.connected) {
+                hrDevice.gatt.disconnect();
+                showMessage('心拍計から切断しました。', false);
+            }
+            if (hrCharacteristic) {
+                hrCharacteristic.removeEventListener('characteristicvaluechanged', handleHRData);
+                hrCharacteristic = null;
+            }
+            hrConnectButton.textContent = '心拍計に接続';
+            hrConnectButton.style.backgroundColor = '#3498db';
+            document.getElementById('hr-display').textContent = '0 bpm';
+        }
+
+        /**
+         * BLEから受信した心拍数データを処理します。
+         * @param {Event} event - characteristicvaluechanged イベント
+         */
+        function handleHRData(event) {
+            const value = event.target.value;
+            const flags = value.getUint8(0);
+            const rate16Bits = (flags & 0x1) !== 0;
+            let heartRate;
+            if (rate16Bits) {
+                heartRate = value.getUint16(1, true); // Little endian
+            } else {
+                heartRate = value.getUint8(1);
+            }
+            currentHeartRate = heartRate;
+            document.getElementById('hr-display').textContent = `${currentHeartRate} bpm`;
+        }
+
+        /**
+         * ログ記録の開始/終了を切り替えます。
+         */
+        function toggleLogging() {
+            isLogging = !isLogging;
+            if (isLogging) {
+                logData = []; // ログを初期化
+                logToggleButton.textContent = 'ログ終了';
+                logToggleButton.style.backgroundColor = '#f39c12'; // 記録中を示す色
+                showMessage('ログ記録を開始しました。', false);
+            } else {
+                logToggleButton.textContent = 'ログ開始';
+                logToggleButton.style.backgroundColor = '#3498db';
+                showMessage('ログ記録を終了しました。', false);
+                if (logData.length > 1) { // データが2点以上ないとLapが作れない
+                    if (confirm('記録したアクティビティをTCXファイルとして保存しますか？')) {
+                        saveLogAsTcx();
+                    }
+                }
+            }
+        }
+
+        /**
+         * 記録したログをTCXファイルとして保存します。
+         */
+        function saveLogAsTcx() {
+            const startTime = logData.length > 0 ? logData[0].timestamp : new Date().toISOString();
+            let maxSpeedMs = 0; // m/s単位での最大速度
+
+            let trackpointsXml = logData.map(p => {
+                let positionXml = '';
+                if (p.position) {
+                    positionXml = `
+            <Position>
+              <LatitudeDegrees>${p.position.lat()}</LatitudeDegrees>
+              <LongitudeDegrees>${p.position.lng()}</LongitudeDegrees>
+            </Position>`;
+                }
+
+                const speedMs = p.speed ? (p.speed * 1000 / 3600) : 0;
+                if (speedMs > maxSpeedMs) {
+                    maxSpeedMs = speedMs;
+                }
+
+                // Garmin拡張スキーマ(TPX)に速度を追加
+                const tpxExtensions = `
+              <TPX xmlns="http://www.garmin.com/xmlschemas/ActivityExtension/v2">
+                <Watts>${p.power}</Watts>
+                <Speed>${speedMs.toFixed(2)}</Speed>
+              </TPX>`;
+
+                return `
+          <Trackpoint>
+            <Time>${p.timestamp}</Time>${positionXml}
+            <DistanceMeters>${p.distance.toFixed(2)}</DistanceMeters>
+            <HeartRateBpm>
+              <Value>${p.heartRate}</Value>
+            </HeartRateBpm>
+            <Cadence>${p.cadence}</Cadence>
+            <Extensions>
+              ${tpxExtensions}
+            </Extensions>
+          </Trackpoint>`;
+            }).join('');
+
+            const totalTimeSeconds = (new Date(logData[logData.length - 1].timestamp).getTime() - new Date(logData[0].timestamp).getTime()) / 1000;
+            const totalDistanceMeters = logData.length > 0 ? logData[logData.length - 1].distance : 0;
+
+            const tcxContent = `<?xml version="1.0" encoding="UTF-8"?>
+<TrainingCenterDatabase xsi:schemaLocation="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2 http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd" xmlns:ns5="http://www.garmin.com/xmlschemas/ActivityGoals/v1" xmlns:ns3="http://www.garmin.com/xmlschemas/ActivityExtension/v2" xmlns:ns2="http://www.garmin.com/xmlschemas/UserProfile/v2" xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ns4="http://www.garmin.com/xmlschemas/ProfileExtension/v1">
+  <Activities>
+    <Activity Sport="Biking">
+      <Id>${startTime}</Id>
+      <Lap StartTime="${startTime}">
+        <TotalTimeSeconds>${totalTimeSeconds.toFixed(0)}</TotalTimeSeconds>
+        <DistanceMeters>${totalDistanceMeters.toFixed(2)}</DistanceMeters>
+        <MaximumSpeed>${maxSpeedMs.toFixed(2)}</MaximumSpeed>
+        <Calories>0</Calories>
+        <Intensity>Active</Intensity>
+        <TriggerMethod>Manual</TriggerMethod>
+        <Track>${trackpointsXml}</Track>
+      </Lap>
+    </Activity>
+  </Activities>
+</TrainingCenterDatabase>`;
+
+            const blob = new Blob([tcxContent], { type: 'application/vnd.garmin.tcx+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const date = new Date(startTime);
+            const filename = `activity_${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2,'0')}${date.getDate().toString().padStart(2,'0')}_${date.getHours().toString().padStart(2,'0')}${date.getMinutes().toString().padStart(2,'0')}.tcx`;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        /**
+         * BLEから受信したFTMSデータを処理します。
+         * 速度を動的に計算し、UIを更新します。
+         * @param {Event} event - characteristicvaluechanged イベント
+         */
+        function handleFTMSData(event) {
+            const value = event.target.value;
+            const data = new DataView(value.buffer);
+            const rawData = Array.from(new Uint8Array(data.buffer)).join(' ');
+
+            const flags = data.getUint16(0, true);
+            let offset = 2;
+
+            if (flags & 0x01) {
+            }
+            if (flags & 0x02) {
+                offset += 2;
+            }
+            if (flags & 0x04) {
+                const instantaneousCadence = data.getUint16(offset, true) / 2;
+                currentCadence = instantaneousCadence.toFixed(0);
+                document.getElementById('cadence-display').textContent = `${currentCadence} rpm`;
+                offset += 2;
+            }
+            if (flags & 0x08) {
+                offset += 2;
+            }
+            if (flags & 0x10) {
+                offset += 3;
+            }
+            if (flags & 0x20) {
+                offset += 2;
+            }
+            if (flags & 0x40) {
+                const power = data.getInt16(offset, true);
+                currentPower = power;
+                document.getElementById('power-display').textContent = `${currentPower} W`;
+
+                // 動的な速度計算と巡回制御
+                //if (isTourRunning) {
+                        // 勾配とパワーを基に速度を計算
+                        let resistance = BASE_RESISTANCE + (GRADIENT_FACTOR * currentGradient);
+                        
+                        // 抵抗が極端に小さくならないように下限値を設定し、速度の急なスパイクを防ぐ
+                        const minResistance = 5; // 最小抵抗値（この値を大きくすると下り坂での速度が上がりにくくなる）
+                        if (resistance < minResistance) {
+                            resistance = minResistance;
+                        }
+                        let newSpeed = (power / resistance) * SCALING_FACTOR;
+                        newSpeed = Math.max(MIN_SPEED_KMH, Math.min(newSpeed, MAX_SPEED_KMH));
+                        
+                        // --- 速度のスムージング処理 ---
+                        // 計算された生の速度をバッファに追加
+                        speedBuffer.push(newSpeed);
+                        if (speedBuffer.length > SPEED_BUFFER_SIZE) {
+                            speedBuffer.shift(); // 古いデータを削除
+                        }
+                        // バッファ内の速度の平均値を計算して滑らかにする
+                        const smoothedSpeed = speedBuffer.reduce((a, b) => a + b, 0) / speedBuffer.length;
+                        currentTourSpeedKmH = smoothedSpeed; // スムージングされた速度をグローバル変数に保存
+                        
+                        // 速度入力フィールドを更新し、巡回インターバルを再設定
+                        speedInput.value = currentTourSpeedKmH.toFixed(1);
+                        updateTourInterval(currentTourSpeedKmH);
+                    if (isTourRunning) {
+                        if (power <= 0) {
+                            stopTour();
+                            showMessage('パワーが0Wになりました。巡回を停止します。', true);
+                        }
+                    } else {
+                        if (power > 0) {
+                            startTour();
+                            showMessage('パワーを検出。巡回を開始します。', true);
+                        }
+                    }
+                //}
+                offset += 2;
+            }
+            if (flags & 0x80) {
+                offset += 2;
+            }
+        }
+
+        function initMap() {
+            const initialLocation = { lat: 35.681236, lng: 139.767125 };
+
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: initialLocation,
+                zoom: 12,
+                streetViewControl: false,
+            });
+
+            panorama = new google.maps.StreetViewPanorama(document.getElementById('street-view'), {
+                position: initialLocation,
+                visible: true,
+                pov: { heading: 0, pitch: 0, zoom: 1 }
+            });
+
+            map.setStreetView(panorama);
+
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer({ map: map, suppressMarkers: true });
+            elevationService = new google.maps.ElevationService();
+
+            routeButton.addEventListener('click', calculateAndDisplayRoute);
+            toggleTourButton.addEventListener('click', toggleTour);
+            bleConnectButton.addEventListener('click', connectToBleDevice);
+            logToggleButton.addEventListener('click', toggleLogging);
+            hrConnectButton.addEventListener('click', connectToHrDevice);
+
+            // 手動での速度変更を検知
+            speedInput.addEventListener('input', () => {
+                const speed = parseFloat(speedInput.value);
+                if (isTourRunning && !isNaN(speed) && speed > 0) {
+                    updateTourInterval(speed);
+                }
+            });
+
+            [originInput, destinationInput].forEach(input => {
+                input.addEventListener('keypress', (event) => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        calculateAndDisplayRoute();
+                    }
+                });
+            });
+
+            const splitter = document.getElementById('splitter');
+            const mapDiv = document.getElementById('map');
+            const streetViewDiv = document.getElementById('street-view');
+            const splitContainer = document.getElementById('split-container');
+            let isDragging = false;
+            let startPos;
+            let startSize;
+
+            streetViewDiv.style.flexGrow = '0';
+            mapDiv.style.flexGrow = '0';
+
+            const initialRatio = 0.7;
+            const isMobile = window.innerWidth <= 767;
+            if (isMobile) {
+                streetViewDiv.style.flexBasis = `${splitContainer.offsetHeight * initialRatio}px`;
+                mapDiv.style.flexBasis = `${splitContainer.offsetHeight * (1 - initialRatio)}px`;
+            } else {
+                streetViewDiv.style.flexBasis = `${splitContainer.offsetWidth * initialRatio}px`;
+                mapDiv.style.flexBasis = `${splitContainer.offsetWidth * (1 - initialRatio)}px`;
+            }
+
+            splitter.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                e.preventDefault();
+                document.body.style.cursor = isMobile ? 'row-resize' : 'col-resize';
+                mapDiv.style.transition = 'none';
+                streetViewDiv.style.transition = 'none';
+                if (isMobile) {
+                    startPos = e.clientY;
+                    startSize = streetViewDiv.offsetHeight;
+                } else {
+                    startPos = e.clientX;
+                    startSize = streetViewDiv.offsetWidth;
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (!isDragging) return;
+                isDragging = false;
+                document.body.style.cursor = 'default';
+                mapDiv.style.transition = 'flex 0.3s ease';
+                streetViewDiv.style.transition = 'flex 0.3s ease';
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const rect = splitContainer.getBoundingClientRect();
+                const minSize = 100;
+                let newSize;
+                if (isMobile) {
+                    const delta = e.clientY - startPos;
+                    newSize = startSize + delta;
+                    newSize = Math.max(minSize, Math.min(newSize, rect.height - minSize));
+                    streetViewDiv.style.flexBasis = `${newSize}px`;
+                    mapDiv.style.flexBasis = `${rect.height - newSize}px`;
+                } else {
+                    const delta = e.clientX - startPos;
+                    newSize = startSize + delta;
+                    newSize = Math.max(minSize, Math.min(newSize, rect.width - minSize));
+                    streetViewDiv.style.flexBasis = `${newSize}px`;
+                    mapDiv.style.flexBasis = `${rect.width - newSize}px`;
+                }
+            });
+        }
+
+        function loadMapsScript() {
+            if (window.google && window.google.maps) {
+                initMap();
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMap&libraries=places,geometry`;
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+
+        window.addEventListener('DOMContentLoaded', loadMapsScript);
+    </script>
+</body>
+</html>
