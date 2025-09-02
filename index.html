@@ -329,7 +329,7 @@
         #elevation-chart {
             width: 100%;
             height: 100%;
-            }
+            cursor: pointer;
         }
     </style>
 </head>
@@ -503,6 +503,7 @@
                 confirmSaveTcx: '記録したアクティビティをTCXファイルとして保存しますか？',
                 powerZeroStop: 'パワーが0Wになりました。ツアーを停止します。',
                 powerDetectedStart: 'パワーを検出。ツアーを開始します。',
+                jumpDisabledDuringTour: 'ツアー中はジャンプできません。',
             },
             en: {
                 routeSettings: 'Route Settings',
@@ -573,6 +574,7 @@
                 confirmSaveTcx: 'Do you want to save the recorded activity as a TCX file?',
                 powerZeroStop: 'Power is 0W. Stopping the tour.',
                 powerDetectedStart: 'Power detected. Starting the tour.',
+                jumpDisabledDuringTour: 'Cannot jump during an active tour.',
             }
         };
         let currentLang = 'ja';
@@ -612,6 +614,7 @@
             container.style.display = 'block';
 
             const canvas = document.getElementById('elevation-chart');
+            canvas.style.cursor = isTourRunning ? 'not-allowed' : 'pointer';
             const ctx = canvas.getContext('2d');
 
             // 高DPIディスプレイに対応
@@ -1416,7 +1419,7 @@
         });
 
         async function updateStreetView() {
-            if (!isTourRunning || currentPointIndex >= routePoints.length) return;
+            if (routePoints.length === 0 || currentPointIndex >= routePoints.length) return;
 
             const targetPosition = routePoints[currentPointIndex];
 
@@ -1509,6 +1512,67 @@
         }
 
         /**
+         * 指定された距離にツアーの現在地をジャンプさせます。
+         * @param {number} newDistance - ジャンプ先の距離 (m)
+         */
+        function jumpToDistance(newDistance) {
+            if (routePoints.length < 2) return;
+
+            // 距離を経路の範囲内に収める
+            newDistance = Math.max(0, Math.min(newDistance, totalDistance));
+            distanceTraveled = newDistance;
+
+            // 新しい現在地のインデックスを探す
+            let newIndex = 0;
+            while (newIndex < cumulativeDistances.length - 1 && newDistance > cumulativeDistances[newIndex + 1]) {
+                newIndex++;
+            }
+            currentPointIndex = newIndex;
+
+            // マーカーの位置を即時更新
+            const newPosition = routePoints[currentPointIndex];
+            if (currentLocationMarker) {
+                currentLocationMarker.setPosition(newPosition);
+                map.panTo(newPosition);
+            }
+            
+            // ストリートビューを即時更新
+            updateStreetView();
+
+            // 情報表示とグラフを更新
+            updateInfoDisplay();
+        }
+
+        /**
+         * 標高グラフのクリックイベントを処理します。
+         * @param {MouseEvent} event - クリックイベント
+         */
+        function handleChartClick(event) {
+            if (isTourRunning) {
+                showMessage(uiStrings[currentLang].jumpDisabledDuringTour);
+                return;
+            }
+            if (routePoints.length < 2) return;
+
+            const canvas = event.target;
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+
+            const padding = { top: 15, bottom: 30, left: 40, right: 40 };
+            const chartWidth = canvas.clientWidth - padding.left - padding.right;
+
+            if (x < padding.left || x > canvas.clientWidth - padding.right) {
+                return;
+            }
+
+            const clickedX = x - padding.left;
+            const fraction = Math.max(0, Math.min(1, clickedX / chartWidth));
+            const newDistance = totalDistance * fraction;
+
+            jumpToDistance(newDistance);
+        }
+
+        /**
          * 画面のスリープを防止するWake Lockを要求します。
          */
         const requestWakeLock = async () => {
@@ -1598,6 +1662,7 @@
                 tourStartTime = 0;
             }
             toggleTourButton.textContent = uiStrings[currentLang].startTour;
+            updateInfoDisplay(); // UIとグラフの状態を更新
         }
 
         async function connectToBleDevice() {
@@ -1930,6 +1995,9 @@
             directionsRenderer = new google.maps.DirectionsRenderer({ map: map, suppressMarkers: true });
             elevationService = new google.maps.ElevationService();
             streetViewService = new google.maps.StreetViewService();
+
+            const elevationChartCanvas = document.getElementById('elevation-chart');
+            elevationChartCanvas.addEventListener('click', handleChartClick);
 
             routeButton.addEventListener('click', calculateAndDisplayRoute);
             toggleTourButton.addEventListener('click', toggleTour);
