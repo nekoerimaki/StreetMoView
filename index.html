@@ -276,6 +276,23 @@
                 align-items: flex-start;
             }
         }
+
+        #elevation-chart-container {
+            width: 100%;
+            height: 120px;
+            background-color: #2c3e50;
+            padding: 10px 20px;
+            box-sizing: border-box;
+            position: relative;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: none; /* Initially hidden */
+        }
+
+        #elevation-chart {
+            width: 100%;
+            height: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -345,6 +362,9 @@
                 <span class="info-value" id="hr-display">0 bpm</span>
             </div>
         </div>
+        <div id="elevation-chart-container">
+            <canvas id="elevation-chart"></canvas>
+        </div>
         <div id="split-container">
             <div id="street-view"></div>
             <div class="splitter" id="splitter"></div>
@@ -385,27 +405,158 @@
         }
 
         /**
-         * 移動平均法を用いて標高データを平滑化します。
-         * @param {number[]} elevations - 元の標поデータの配列
-         * @param {number} windowSize - 平滑化のためのウィンドウサイズ（奇数を推奨）
-         * @returns {number[]} - 平滑化された標高データの配列
+         * 経路全体の標高グラフを描画します。
+         * @param {number} currentDistance - 現在の移動距離 (m)
          */
-        function smoothElevations(elevations, windowSize) {
-            if (windowSize <= 1) {
-                return elevations;
+        function drawElevationChart(currentDistance = 0) {
+            // グラフ描画に必要なデータが揃っているか確認
+            const container = document.getElementById('elevation-chart-container');
+            if (routeElevations.length < 2 || routeGradients.length < 2) {
+                container.style.display = 'none';
+                return;
             }
-            const smoothed = [];
+            container.style.display = 'block';
+
+            const canvas = document.getElementById('elevation-chart');
+            const ctx = canvas.getContext('2d');
+
+            // 高DPIディスプレイに対応
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // 標高データの範囲を計算
+            const minElev = Math.min(...routeElevations);
+            const maxElev = Math.max(...routeElevations);
+            const elevRange = maxElev - minElev;
+
+            // 勾配データの範囲を計算（0%を中心に上下対称にすると見やすい）
+            const minGrad = Math.min(...routeGradients);
+            const maxGrad = Math.max(...routeGradients);
+            const absMaxGrad = Math.max(Math.abs(minGrad), Math.abs(maxGrad), 2); // 最小でも±2%の範囲を確保
+            const gradRange = absMaxGrad * 2;
+
+            const padding = { top: 15, bottom: 20, left: 40, right: 40 };
+            const chartWidth = width - padding.left - padding.right;
+            const chartHeight = height - padding.top - padding.bottom;
+
+            // 座標計算用のヘルパー関数
+            const getX = (dist) => padding.left + (dist / totalDistance) * chartWidth;
+            const getElevY = (elev) => padding.top + chartHeight - ((elev - minElev) / (elevRange || 1)) * chartHeight;
+            const getGradY = (grad) => padding.top + chartHeight - ((grad - (-absMaxGrad)) / (gradRange || 1)) * chartHeight;
+
+            // --- グラフの描画 ---
+
+            // 1. 勾配グラフの0%基準線
+            ctx.beginPath();
+            const zeroY = getGradY(0);
+            ctx.moveTo(padding.left, zeroY);
+            ctx.lineTo(width - padding.right, zeroY);
+            ctx.strokeStyle = 'rgba(243, 156, 18, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 3]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 2. 標高グラフ（エリア）
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, 'rgba(52, 152, 219, 0.3)');
+            gradient.addColorStop(1, 'rgba(44, 62, 80, 0.1)');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.moveTo(getX(0), getElevY(routeElevations[0]));
+            for (let i = 1; i < routeElevations.length; i++) {
+                ctx.lineTo(getX(cumulativeDistances[i]), getElevY(routeElevations[i]));
+            }
+            ctx.lineTo(getX(totalDistance), height - padding.bottom);
+            ctx.lineTo(getX(0), height - padding.bottom);
+            ctx.closePath();
+            ctx.fill();
+
+            // 3. 勾配グラフ（線）
+            ctx.beginPath();
+            ctx.moveTo(getX(0), getGradY(routeGradients[0]));
+            for (let i = 1; i < routeGradients.length; i++) {
+                ctx.lineTo(getX(cumulativeDistances[i]), getGradY(routeGradients[i]));
+            }
+            ctx.strokeStyle = 'rgba(243, 156, 18, 0.8)'; // オレンジ色
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // 4. 標高グラフ（線）
+            ctx.beginPath();
+            ctx.moveTo(getX(0), getElevY(routeElevations[0]));
+            for (let i = 1; i < routeElevations.length; i++) {
+                ctx.lineTo(getX(cumulativeDistances[i]), getElevY(routeElevations[i]));
+            }
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 5. 軸ラベルの描画
+            ctx.fillStyle = '#bdc3c7';
+            ctx.font = '10px Inter';
+            // 左側：標高
+            ctx.textAlign = 'right';
+            ctx.fillText(`${maxElev.toFixed(0)} m`, padding.left - 5, padding.top + 5);
+            ctx.fillText(`${minElev.toFixed(0)} m`, padding.left - 5, height - padding.bottom);
+            // 右側：勾配
+            ctx.fillStyle = 'rgba(243, 156, 18, 0.9)';
+            ctx.textAlign = 'left';
+            ctx.fillText(`${absMaxGrad.toFixed(1)} %`, width - padding.right + 5, getGradY(absMaxGrad) + 3);
+            ctx.fillText(`${(-absMaxGrad).toFixed(1)} %`, width - padding.right + 5, getGradY(-absMaxGrad) + 3);
+
+            // 6. 現在地マーカー
+            if (currentDistance > 0 && currentDistance < totalDistance) {
+                const markerX = getX(currentDistance);
+                const markerY = getElevY(routeElevations[currentPointIndex]);
+                ctx.beginPath();
+                ctx.moveTo(markerX, padding.top);
+                ctx.lineTo(markerX, height - padding.bottom);
+                ctx.strokeStyle = '#e74c3c';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(markerX, markerY, 4, 0, 2 * Math.PI);
+                ctx.fillStyle = '#e74c3c';
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+        }
+
+        /**
+         * 標高データのスパイク（異常値）を除去するためにメディアンフィルタを適用します。
+         * これにより、APIから返される稀な外れ値が勾配計算に与える影響を抑制します。
+         * @param {Array<Object>} pointsData - 'elevation'プロパティを持つオブジェクトの配列
+         * @param {number} windowSize - フィルタのウィンドウサイズ（3以上の奇数を推奨）
+         * @returns {Array<Object>} - フィルタリングされた標高データを持つ新しい配列
+         */
+        function applyMedianFilter(pointsData, windowSize) {
+            if (windowSize % 2 === 0 || windowSize < 3 || pointsData.length < windowSize) {
+                return pointsData; // フィルタを適用できない場合は元のデータを返す
+            }
+            const filteredPoints = [];
             const halfWindow = Math.floor(windowSize / 2);
-            for (let i = 0; i < elevations.length; i++) {
+
+            for (let i = 0; i < pointsData.length; i++) {
                 const start = Math.max(0, i - halfWindow);
-                const end = Math.min(elevations.length - 1, i + halfWindow);
-                let sum = 0;
-                for (let j = start; j <= end; j++) {
-                    sum += elevations[j];
-                }
-                smoothed.push(sum / (end - start + 1));
+                const end = Math.min(pointsData.length - 1, i + halfWindow);
+                const windowSlice = pointsData.slice(start, end + 1);
+                const elevations = windowSlice.map(p => p.elevation).sort((a, b) => a - b);
+                const medianElevation = elevations[Math.floor(elevations.length / 2)];
+                filteredPoints.push({ ...pointsData[i], elevation: medianElevation });
             }
-            return smoothed;
+            return filteredPoints;
         }
 
         /**
@@ -499,47 +650,55 @@
             document.getElementById('time-elapsed').textContent = formatTime(timeElapsed);
             document.getElementById('time-remaining').textContent = formatTime(timeRemaining);
 
-            if (routeElevations.length > 0 && currentPointIndex < routeElevations.length) {
+            if (routeElevations.length > 0 && currentPointIndex < routeElevations.length && cumulativeDistances.length > currentPointIndex) {
                 const currentElevation = routeElevations[currentPointIndex];
-                document.getElementById('elevation').textContent = `${currentElevation.toFixed(0)} m`;
+                document.getElementById('elevation').textContent = `${currentElevation.toFixed(1)} m`;
 
-                // より安定した勾配を計算するため、現在地の前後の複数点を考慮する
-                const lookbehind = 5; // 手前を何点見るか
-                const lookahead = 5;  // 先を何点見るか
+                // 現在地が属するサンプリング区間の勾配を計算する
+                if (sampledPointsData.length >= 2) {
+                    const currentDistance = cumulativeDistances[currentPointIndex];
 
-                const startIndex = Math.max(0, currentPointIndex - lookbehind);
-                const endIndex = Math.min(routePoints.length - 1, currentPointIndex + lookahead);
-
-                if (startIndex < endIndex) {
-                    const startElevation = routeElevations[startIndex];
-                    const endElevation = routeElevations[endIndex];
-
-                    let totalSegmentDistance = 0;
-                    for (let i = startIndex; i < endIndex; i++) {
-                        totalSegmentDistance += getDistance(routePoints[i], routePoints[i+1]);
+                    // 現在地がどのサンプリング区間にいるかを探す
+                    let segmentIndex = 0;
+                    while (segmentIndex < sampledPointsData.length - 2 && currentDistance >= sampledPointsData[segmentIndex + 1].distance) {
+                        segmentIndex++;
                     }
 
-                    const elevationChange = endElevation - startElevation;
+                    const startSample = sampledPointsData[segmentIndex];
+                    const endSample = sampledPointsData[segmentIndex + 1];
 
-                    if (totalSegmentDistance > 0) {
-                        currentGradient = (elevationChange / totalSegmentDistance) * 100;
-                    } else { currentGradient = 0; }
+                    const segmentDistance = endSample.distance - startSample.distance;
+                    const elevationChange = endSample.elevation - startSample.elevation;
+
+                    // 勾配計算の安定化：走行中の区間が計算に十分な長さを持つ場合のみ、勾配を更新する。
+                    // 短い区間では、直前の有効な勾配の値を維持することで、異常なスパイクを防ぐ。
+                    const MIN_GRADIENT_DISTANCE = 1.0; // 勾配計算に使用する最小距離(m)
+
+                    if (segmentDistance >= MIN_GRADIENT_DISTANCE) {
+                        currentGradient = (elevationChange / segmentDistance) * 100;
+                    }
                 } else {
-                    currentGradient = 0; // 区間が取れない場合は勾配0
+                    currentGradient = 0; // サンプリングデータが不十分な場合
                 }
-                document.getElementById('gradient').textContent = `${currentGradient.toFixed(0)} %`;
+                document.getElementById('gradient').textContent = `${currentGradient.toFixed(1)} %`;
             } else {
                  document.getElementById('elevation').textContent = `N/A`;
                  document.getElementById('gradient').textContent = `N/A`;
                  currentGradient = 0;
             }
+
+            // グラフを更新
+            drawElevationChart(distanceTraveled);
         }
 
         let map, panorama;
         let directionsService, directionsRenderer, elevationService;
         let routePoints = [];
+        let routeGradients = [];
         let routeElevations = [];
         let gpxRoutePolyline = null;
+        let cumulativeDistances = [];
+        let sampledPointsData = [];
         let tourInterval;
         let currentLocationMarker;
         let isTourRunning = false;
@@ -659,6 +818,7 @@
             }
             routePoints = [];
             routeElevations = [];
+            routeGradients = [];
             totalDistance = 0;
             distanceTraveled = 0;
             currentPointIndex = 0;
@@ -667,6 +827,13 @@
             document.getElementById('gradient').textContent = `N/A`;
             updateInfoDisplay();
             toggleTourButton.disabled = true;
+
+            // グラフをクリアして非表示にする
+            const container = document.getElementById('elevation-chart-container');
+            const canvas = document.getElementById('elevation-chart');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            container.style.display = 'none';
         }
 
         /**
@@ -683,40 +850,113 @@
             const firstPoint = routePoints[0];
             const lastPoint = routePoints[routePoints.length - 1];
 
-            try {
-                const sampleLimit = 512;
-                let elevationResults = [];
-                for (let i = 0; i < routePoints.length; i += sampleLimit) {
-                    const chunk = routePoints.slice(i, i + sampleLimit);
-                    const { results } = await elevationService.getElevationAlongPath({
-                        path: chunk,
-                        samples: chunk.length,
-                    });
-                    elevationResults = elevationResults.concat(results.map(result => result.elevation));
-                }
-                // 標高データをスムージングして、勾配計算の急な変動を抑える
-                const smoothingWindowSize = 15; // ウィンドウサイズ（奇数を推奨）。大きいほど滑らかになる。
-                routeElevations = smoothElevations(elevationResults, smoothingWindowSize);
-
-                showMessage('全経路の標高データを取得しました。', false);
-            } catch (error) {
-                showMessage('全経路の標高データを取得できませんでした。開始地点の標高のみ表示します。', true);
-                console.error("全経路の標高取得に失敗しました:", error);
-                routeElevations = [];
-                try {
-                    const { results } = await elevationService.getElevationForLocations({
-                        locations: [firstPoint]
-                    });
-                    if (results && results.length > 0) {
-                        routeElevations.push(results[0].elevation);
-                    }
-                } catch (e) {
-                    console.error("出発地点の標高取得に失敗しました:", e);
-                }
+            // 最初に全ポイントの累積距離を計算
+            cumulativeDistances = [0];
+            for (let i = 1; i < path.length; i++) {
+                cumulativeDistances.push(cumulativeDistances[i-1] + getDistance(path[i-1], path[i]));
             }
+            totalDistance = cumulativeDistances[cumulativeDistances.length - 1];
 
-            for(let i = 0; i < routePoints.length - 1; i++) {
-                totalDistance += getDistance(routePoints[i], routePoints[i+1]);
+            try {
+                // 1. 50mごとに経路をサンプリングする
+                const samplingDistance = 50;
+                sampledPointsData = [{ point: path[0], distance: 0 }];
+                let distanceSinceLastSample = 0;
+                for (let i = 1; i < path.length; i++) {
+                    const dist = cumulativeDistances[i] - cumulativeDistances[i-1];
+                    distanceSinceLastSample += dist;
+                    if (distanceSinceLastSample >= samplingDistance) {
+                        sampledPointsData.push({ point: path[i], distance: cumulativeDistances[i] });
+                        distanceSinceLastSample = 0;
+                    }
+                }
+                // 最後のポイントがサンプリングされていない場合、追加する
+                if (sampledPointsData[sampledPointsData.length - 1].distance < totalDistance) {
+                    sampledPointsData.push({ point: path[path.length - 1], distance: totalDistance });
+                }
+
+                // 2. サンプリングした点の標高を取得
+                const sampledPoints = sampledPointsData.map(d => d.point);
+                const sampleLimit = 512; // APIの上限
+                let allElevationResults = [];
+
+                for (let i = 0; i < sampledPoints.length; i += sampleLimit) {
+                    const chunk = sampledPoints.slice(i, i + sampleLimit);
+                    const { results: chunkResults } = await elevationService.getElevationForLocations({
+                        locations: chunk,
+                    });
+                    if (!chunkResults || chunkResults.length !== chunk.length) {
+                        const errorMessage = chunkResults ? `期待した結果の数(${chunk.length})と実際の結果の数(${chunkResults.length})が異なります。` : 'APIから結果が返されませんでした。';
+                        throw new Error(`標高取得チャンク[${i}-${i+chunk.length-1}]でエラー: ${errorMessage}`);
+                    }
+                    allElevationResults = allElevationResults.concat(chunkResults);
+                }
+
+                if (allElevationResults.length !== sampledPoints.length) {
+                    throw new Error('サンプリング地点の標高取得に失敗しました。');
+                }
+                sampledPointsData.forEach((data, i) => {
+                    data.elevation = allElevationResults[i].elevation;
+                });
+
+                // 標高の異常なスパイクを除去するためにメディアンフィルタを適用
+                sampledPointsData = applyMedianFilter(sampledPointsData, 3);
+
+                // 3. 元の経路の各点の標高を計算する
+                routeElevations = new Array(path.length);
+
+                // サンプリングされた点が2つ未満の場合（経路が非常に短い場合など）、
+                // 全ポイントを最初の点の標高にするか、0で埋める
+                if (sampledPointsData.length < 2) {
+                    const singleElevation = sampledPointsData.length === 1 ? sampledPointsData[0].elevation : 0;
+                    routeElevations.fill(singleElevation);
+                } else {
+                    // 線形補間で各点の標高を計算
+                    let currentSegmentIndex = 0;
+                    for (let i = 0; i < path.length; i++) {
+                        const pointDistance = cumulativeDistances[i];
+                        // 現在の点がどの補間セグメントに属するかを見つける
+                        while (currentSegmentIndex < sampledPointsData.length - 2 && pointDistance > sampledPointsData[currentSegmentIndex + 1].distance) {
+                            currentSegmentIndex++;
+                        }
+                        const startSample = sampledPointsData[currentSegmentIndex];
+                        const endSample = sampledPointsData[currentSegmentIndex + 1];
+                        const segmentDistance = endSample.distance - startSample.distance;
+                        const distanceIntoSegment = pointDistance - startSample.distance;
+                        const fraction = (segmentDistance > 0) ? distanceIntoSegment / segmentDistance : 0;
+                        const interpolatedElevation = startSample.elevation + (endSample.elevation - startSample.elevation) * Math.max(0, Math.min(1, fraction));
+                        routeElevations[i] = interpolatedElevation;
+                    }
+                }
+
+                // 4. 元の経路の各点の勾配を計算する
+                routeGradients = new Array(path.length);
+                if (sampledPointsData.length >= 2) {
+                    let currentSegmentIndex = 0;
+                    let lastValidGradient = 0;
+                    for (let i = 0; i < path.length; i++) {
+                        const pointDistance = cumulativeDistances[i];
+                        while (currentSegmentIndex < sampledPointsData.length - 2 && pointDistance > sampledPointsData[currentSegmentIndex + 1].distance) {
+                            currentSegmentIndex++;
+                        }
+                        const startSample = sampledPointsData[currentSegmentIndex];
+                        const endSample = sampledPointsData[currentSegmentIndex + 1];
+                        const segmentDistance = endSample.distance - startSample.distance;
+                        const elevationChange = endSample.elevation - startSample.elevation;
+
+                        if (segmentDistance >= 1.0) { // 1m以上の場合のみ計算
+                            lastValidGradient = (elevationChange / segmentDistance) * 100;
+                        }
+                        routeGradients[i] = lastValidGradient;
+                    }
+                } else {
+                    routeGradients.fill(0);
+                }
+                showMessage('経路の標高データを補正しました。', false);
+            } catch (error) {
+                showMessage('標高データの取得または補正に失敗しました。', true);
+                console.error("標高処理エラー:", error);
+                routeElevations = new Array(routePoints.length).fill(0);
             }
 
             startMarker = new google.maps.Marker({
@@ -765,6 +1005,9 @@
             showMessage('経路が見つかりました！巡回を開始できます。', false);
             updateInfoDisplay();
             toggleTourButton.disabled = false;
+
+            // 初期グラフを描画
+            drawElevationChart(0);
         }
 
         /**
