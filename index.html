@@ -427,8 +427,8 @@
                 searchRoute: '経路を検索',
                 loadGpx: 'GPXを読み込む',
                 speed: '速度 (km/時):',
-                startTour: '巡回開始',
-                stopTour: '巡回停止',
+                startTour: 'ツアー開始',
+                stopTour: 'ツアー停止',
                 connectPower: 'パワーソースに接続',
                 connectHr: '心拍計に接続',
                 disconnect: '接続解除',
@@ -477,8 +477,8 @@
                 logStarted: 'ログ記録を開始しました。',
                 logStopped: 'ログ記録を終了しました。',
                 confirmSaveTcx: '記録したアクティビティをTCXファイルとして保存しますか？',
-                powerZeroStop: 'パワーが0Wになりました。巡回を停止します。',
-                powerDetectedStart: 'パワーを検出。巡回を開始します。',
+                powerZeroStop: 'パワーが0Wになりました。ツアーを停止します。',
+                powerDetectedStart: 'パワーを検出。ツアーを開始します。',
             },
             en: {
                 routeSettings: 'Route Settings',
@@ -607,7 +607,7 @@
             const absMaxGrad = Math.max(Math.abs(minGrad), Math.abs(maxGrad), 2); // 最小でも±2%の範囲を確保
             const gradRange = absMaxGrad * 2;
 
-            const padding = { top: 15, bottom: 20, left: 40, right: 40 };
+            const padding = { top: 15, bottom: 30, left: 40, right: 40 };
             const chartWidth = width - padding.left - padding.right;
             const chartHeight = height - padding.top - padding.bottom;
 
@@ -664,7 +664,27 @@
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // 5. 軸ラベルの描画
+            // 5. 横軸の目盛りとラベルを描画
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(189, 195, 199, 0.2)'; // #bdc3c7 with alpha
+            ctx.lineWidth = 1;
+            ctx.font = '9px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#bdc3c7';
+
+            const tickInterval = 500; // 500mごと
+            for (let dist = tickInterval; dist < totalDistance; dist += tickInterval) {
+                const x = getX(dist);
+                ctx.moveTo(x, height - padding.bottom);
+                ctx.lineTo(x, height - padding.bottom + 4); // 4pxの短い線
+
+                const distKm = (dist / 1000);
+                const label = distKm % 1 === 0 ? distKm.toFixed(0) : distKm.toFixed(1);
+                ctx.fillText(label, x, height - padding.bottom + 15);
+            }
+            ctx.stroke();
+
+            // 6. 軸ラベルの描画
             ctx.fillStyle = '#bdc3c7';
             ctx.font = '10px Inter';
             // 左側：標高
@@ -677,7 +697,7 @@
             ctx.fillText(`${absMaxGrad.toFixed(1)} %`, width - padding.right + 5, getGradY(absMaxGrad) + 3);
             ctx.fillText(`${(-absMaxGrad).toFixed(1)} %`, width - padding.right + 5, getGradY(-absMaxGrad) + 3);
 
-            // 6. 現在地マーカー
+            // 7. 現在地マーカー
             if (currentDistance > 0 && currentDistance < totalDistance) {
                 const markerX = getX(currentDistance);
                 const markerY = getElevY(routeElevations[currentPointIndex]);
@@ -977,7 +997,7 @@
 
         /**
          * 巡回モードを設定し、UIを更新します。
-         * @param {string} mode - 巡回モード ('DRIVING', 'BICYCLING', 'WALKING')
+         * @param {string} mode - ツアーモード ('DRIVING', 'BICYCLING', 'WALKING')
          */
         function setTravelMode(mode) {
             currentTravelMode = mode;
@@ -1010,7 +1030,7 @@
         }
 
         /**
-         * 巡回状態を初期化します。
+         * ツアー状態を初期化します。
          */
         function resetTourState() {
             stopTour();
@@ -1505,7 +1525,7 @@
             bleConnectButton.style.backgroundColor = '#3498db';
             document.getElementById('power-display').textContent = '0 W';
             document.getElementById('cadence-display').textContent = '0 rpm';
-            stopTour(); // 切断時に巡回を停止
+            stopTour(); // 切断時にツアーを停止
         }
 
         async function connectToHrDevice() {
@@ -1713,7 +1733,7 @@
                 currentPower = power;
                 document.getElementById('power-display').textContent = `${currentPower} W`;
 
-                // 動的な速度計算と巡回制御
+                // 動的な速度計算とツアー制御
                 //if (isTourRunning) {
                         // 勾配とパワーを基に速度を計算
                         let resistance = BASE_RESISTANCE + (GRADIENT_FACTOR * currentGradient);
