@@ -318,6 +318,13 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             display: none; /* Initially hidden */
         }
+        
+        #direction-settings-dropdown {
+            padding: 5px;
+        }
+        #direction-switcher {
+            border: none;
+        }
 
         #elevation-chart {
             width: 100%;
@@ -354,6 +361,14 @@
                     <button id="ble-connect-button" data-i18n="connectPower">パワーソースに接続</button>
                     <button id="hr-connect-button" data-i18n="connectHr">心拍計に接続</button>
                     <button id="log-toggle-button" data-i18n="startLog">ログ開始</button>
+                    <div class="dropdown-container">
+                        <button id="direction-settings-button" data-i18n="directionSettings">表示方向</button>
+                        <div class="dropdown-content" id="direction-settings-dropdown">
+                            <div class="mode-switcher" id="direction-switcher">
+                                <button data-angle="-90" data-i18n="left90">左90°</button><button data-angle="-45" data-i18n="left45">左45°</button><button class="active" data-angle="0" data-i18n="front">正面</button><button data-angle="45" data-i18n="right45">右45°</button><button data-angle="90" data-i18n="right90">右90°</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="header-links">
@@ -446,6 +461,12 @@
                 power: 'パワー',
                 cadence: 'ケイデンス',
                 heartRate: '心拍数',
+                directionSettings: '表示方向',
+                left90: '左90°',
+                left45: '左45°',
+                front: '正面',
+                right45: '右45°',
+                right90: '右90°',
                 startPoint: '出発地',
                 endPoint: '目的地',
                 currentLocation: '現在地',
@@ -510,6 +531,12 @@
                 power: 'Power',
                 cadence: 'Cadence',
                 heartRate: 'Heart Rate',
+                directionSettings: 'View Direction',
+                left90: 'Left 90°',
+                left45: 'Left 45°',
+                front: 'Front',
+                right45: 'Right 45°',
+                right90: 'Right 90°',
                 startPoint: 'Start Point',
                 endPoint: 'End Point',
                 currentLocation: 'Current Location',
@@ -899,6 +926,7 @@
         let wakeLockSentinel = null;
         let distanceTraveled = 0;
         let tourStartTime = 0;
+        let directionOffset = 0;
         let totalTimeElapsed = 0;
         let currentGradient = 0;
         let currentTourSpeedKmH = 0;
@@ -940,6 +968,9 @@
         const originInput = document.getElementById('origin-input');
         const destinationInput = document.getElementById('destination-input');
         const intervalInput = document.getElementById('interval-input');
+        const directionSettingsButton = document.getElementById('direction-settings-button');
+        const directionSettingsDropdown = document.getElementById('direction-settings-dropdown');
+        const directionButtons = document.querySelectorAll('#direction-switcher button');
         const speedInput = document.getElementById('speed-input');
         const travelModeButtons = document.querySelectorAll('.mode-switcher button');
         let currentTravelMode = 'DRIVING';
@@ -998,8 +1029,11 @@
 
         // ドロップダウン外をクリックしたら閉じる
         window.addEventListener('click', (event) => {
-            if (!routeSettingsDropdown.contains(event.target) && !routeSettingsButton.contains(event.target)) {
+            if (routeSettingsDropdown.classList.contains('show') && !routeSettingsDropdown.contains(event.target) && !routeSettingsButton.contains(event.target)) {
                 routeSettingsDropdown.classList.remove('show');
+            }
+            if (directionSettingsDropdown.classList.contains('show') && !directionSettingsDropdown.contains(event.target) && !directionSettingsButton.contains(event.target)) {
+                directionSettingsDropdown.classList.remove('show');
             }
         });
 
@@ -1022,6 +1056,23 @@
         travelModeButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 setTravelMode(btn.dataset.mode);
+            });
+        });
+
+        // 方向設定ドロップダウン
+        directionSettingsButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            directionSettingsDropdown.classList.toggle('show');
+        });
+
+        directionButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                directionOffset = parseInt(btn.dataset.angle, 10);
+                directionButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                if (!isTourRunning && routePoints.length > 0) {
+                    updateStreetView();
+                }
             });
         });
 
@@ -1228,7 +1279,7 @@
                     if (routePoints.length > 1) {
                         const heading = getHeading(routePoints[0], routePoints[1]);
                         if (!isNaN(heading)) {
-                            panorama.setPov({ heading: heading, pitch: 0, zoom: 1 });
+                            panorama.setPov({ heading: (heading + directionOffset + 360) % 360, pitch: 0, zoom: 1 });
                         }
                     }
                 } catch (e) {
@@ -1388,7 +1439,7 @@
                     if (currentPointIndex + 1 < routePoints.length) {
                         const heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
                         if (!isNaN(heading)) {
-                            panorama.setPov({ heading: heading, pitch: 0, zoom: 1 });
+                            panorama.setPov({ heading: (heading + directionOffset + 360) % 360, pitch: 0, zoom: 1 });
                         }
                     }
                 } else {
@@ -1443,9 +1494,11 @@
             }
 
             if (isLogging) {
+                const currentElevation = (routeElevations.length > currentPointIndex) ? routeElevations[currentPointIndex] : 0;
                 logData.push({
                     timestamp: new Date().toISOString(),
                     position: currentPosition,
+                    elevation: currentElevation,
                     power: currentPower,
                     cadence: currentCadence,
                     heartRate: currentHeartRate,
@@ -1707,6 +1760,12 @@
             </Position>`;
                 }
 
+                let altitudeXml = '';
+                if (p.elevation !== undefined) {
+                    altitudeXml = `
+            <AltitudeMeters>${p.elevation.toFixed(2)}</AltitudeMeters>`;
+                }
+
                 const speedMs = p.speed ? (p.speed * 1000 / 3600) : 0;
                 if (speedMs > maxSpeedMs) {
                     maxSpeedMs = speedMs;
@@ -1721,7 +1780,7 @@
 
                 return `
           <Trackpoint>
-            <Time>${p.timestamp}</Time>${positionXml}
+            <Time>${p.timestamp}</Time>${positionXml}${altitudeXml}
             <DistanceMeters>${p.distance.toFixed(2)}</DistanceMeters>
             <HeartRateBpm>
               <Value>${p.heartRate}</Value>
