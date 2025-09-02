@@ -1062,8 +1062,10 @@
             totalDistance = cumulativeDistances[cumulativeDistances.length - 1];
 
             try {
-                // 1. 50mごとに経路をサンプリングする
-                const samplingDistance = 50;
+                // 1. 経路長に応じてサンプリング距離を動的に決定する
+                const minSamplingDistance = 25; // 最小サンプリング距離 (m)
+                const samplingDistance = (totalDistance >= 1000) ? (totalDistance * 0.025) : minSamplingDistance;
+
                 sampledPointsData = [{ point: path[0], distance: 0 }];
                 let distanceSinceLastSample = 0;
                 for (let i = 1; i < path.length; i++) {
