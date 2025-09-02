@@ -896,6 +896,7 @@
         let currentPointIndex = 0;
         let startMarker, endMarker;
         let totalDistance = 0;
+        let wakeLockSentinel = null;
         let distanceTraveled = 0;
         let tourStartTime = 0;
         let totalTimeElapsed = 0;
@@ -1454,16 +1455,45 @@
             }
         }
 
+        /**
+         * 画面のスリープを防止するWake Lockを要求します。
+         */
+        const requestWakeLock = async () => {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLockSentinel = await navigator.wakeLock.request('screen');
+                    wakeLockSentinel.addEventListener('release', () => {
+                        // システムによってロックが解放された場合（例：タブの非表示化）
+                        console.log('Screen Wake Lock was released by the system.');
+                        wakeLockSentinel = null;
+                    });
+                    console.log('Screen Wake Lock is active.');
+                } catch (err) {
+                    console.error(`Failed to acquire wake lock: ${err.name}, ${err.message}`);
+                }
+            }
+        };
 
-        function toggleTour() {
+        /**
+         * Wake Lockを解放します。
+         */
+        const releaseWakeLock = async () => {
+            if (wakeLockSentinel !== null) {
+                await wakeLockSentinel.release();
+                wakeLockSentinel = null;
+                console.log('Screen Wake Lock released.');
+            }
+        };
+
+        async function toggleTour() {
             if (isTourRunning) {
-                stopTour();
+                await stopTour();
             } else {
-                startTour();
+                await startTour();
             }
         }
 
-        function startTour() {
+        async function startTour() {
             if (isTourRunning) return;
 
             if (routePoints.length === 0) {
@@ -1483,6 +1513,9 @@
                 return;
             }
 
+            // 画面のスリープを防止
+            await requestWakeLock();
+
             isTourRunning = true;
             toggleTourButton.textContent = uiStrings[currentLang].stopTour;
             tourStartTime = Date.now();
@@ -1494,12 +1527,16 @@
             physicsIntervalId = setInterval(updatePhysics, PHYSICS_INTERVAL_MS);
         }
 
-        function stopTour() {
+        async function stopTour() {
             if (physicsIntervalId) {
                 clearInterval(physicsIntervalId);
                 physicsIntervalId = null;
             }
             isTourRunning = false;
+
+            // 画面のスリープ防止を解除
+            await releaseWakeLock();
+
             if (tourStartTime > 0) {
                 totalTimeElapsed = totalTimeElapsed + (Date.now() - tourStartTime) / 1000;
                 console.log(formatTime(Date.now()));
@@ -1512,7 +1549,7 @@
 
         async function connectToBleDevice() {
             if (bleDevice && bleDevice.gatt.connected) {
-                disconnectFromBleDevice();
+                await disconnectFromBleDevice();
                 return;
             }
 
@@ -1546,7 +1583,7 @@
             }
         }
 
-        function disconnectFromBleDevice() {
+        async function disconnectFromBleDevice() {
             if (bleDevice && bleDevice.gatt.connected) {
                 bleDevice.gatt.disconnect();
                 showMessage(uiStrings[currentLang].deviceDisconnected, false);
@@ -1560,7 +1597,7 @@
             bleConnectButton.style.backgroundColor = '#3498db';
             document.getElementById('power-display').textContent = '0 W';
             document.getElementById('cadence-display').textContent = '0 rpm';
-            stopTour(); // 切断時にツアーを停止
+            await stopTour(); // 切断時にツアーを停止
         }
 
         async function connectToHrDevice() {
@@ -1846,6 +1883,13 @@
                 btn.addEventListener('click', (e) => {
                     setLanguage(e.target.dataset.lang);
                 });
+            });
+
+            // タブが再度表示されたときにWake Lockを再取得する
+            document.addEventListener('visibilitychange', async () => {
+                if (isTourRunning && document.visibilityState === 'visible') {
+                    await requestWakeLock();
+                }
             });
 
             // 手動での速度変更を検知
