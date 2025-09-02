@@ -27,11 +27,11 @@
 
         .controls-area {
             display: flex;
-            justify-content: center;
+            justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
             gap: 15px;
-            padding: 15px 20px;
+            padding: 10px 20px;
             background-color: white;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             z-index: 10;
@@ -50,7 +50,7 @@
             min-width: 250px;
             box-shadow: 0 8px 16px rgba(0,0,0,0.2);
             z-index: 1;
-            padding: 12px;
+            padding: 10px;
             border-radius: 8px;
             flex-direction: column;
             gap: 10px;
@@ -79,6 +79,20 @@
             align-items: center;
         }
 
+        .control-groups {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header-links {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            white-space: nowrap;
+        }
+
         #speed-input, #interval-input {
             width: 80px;
             padding: 8px;
@@ -89,7 +103,7 @@
         }
 
         button {
-            padding: 10px 15px;
+            padding: 8px 15px;
             font-size: 0.9rem;
             color: white;
             background-color: #3498db;
@@ -182,10 +196,10 @@
         #info-display {
             background-color: #2c3e50;
             color: white;
-            padding: 10px 20px;
+            padding: 5px 20px;
             display: flex;
             flex-wrap: wrap;
-            gap: 15px 30px;
+            gap: 5px 25px;
             justify-content: space-between;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             font-size: 0.9rem;
@@ -204,21 +218,10 @@
             font-size: 1.1rem;
         }
 
-        footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            text-align: center;
-            padding: 10px;
-            background-color: #fff;
-            box-shadow: 0 -1px 4px rgba(0,0,0,0.1);
-            z-index: 5;
-        }
         #lang-switcher {
             display: flex;
             gap: 5px;
         }
-
         .lang-btn {
             padding: 5px 10px;
             font-size: 0.8rem;
@@ -239,12 +242,12 @@
             color: white;
             border-color: #3498db;
         }
-        footer a {
+        .header-links a {
             color: #3498db;
             text-decoration: none;
             font-weight: 500;
         }
-        footer a:hover {
+        .header-links a:hover {
             text-decoration: underline;
         }
 
@@ -307,9 +310,9 @@
 
         #elevation-chart-container {
             width: 100%;
-            height: 120px;
+            height: 100px;
             background-color: #2c3e50;
-            padding: 10px 20px;
+            padding: 5px 20px;
             box-sizing: border-box;
             position: relative;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
@@ -326,30 +329,41 @@
 <body>
     <div id="main-container">
         <div class="controls-area">
-            <div class="dropdown-container">
-                <button id="route-settings-button" data-i18n="routeSettings">経路設定</button>
-                <div class="dropdown-content" id="route-settings-dropdown">
-                    <input type="text" id="origin-input" placeholder="出発地: 例. 東京駅" data-i18n-placeholder="originPlaceholder">
-                    <input type="text" id="destination-input" placeholder="目的地: 例. 渋谷スクランブル交差点" data-i18n-placeholder="destinationPlaceholder">
-                    <div class="mode-switcher">
-                        <button id="driving-mode-btn" data-mode="DRIVING" class="active" data-i18n="driving">自動車</button>
-                        <button id="bicycling-mode-btn" data-mode="BICYCLING" data-i18n="bicycling">自転車</button>
-                        <button id="walking-mode-btn" data-mode="WALKING" data-i18n="walking">徒歩</button>
+            <div class="control-groups">
+                <div class="dropdown-container">
+                    <button id="route-settings-button" data-i18n="routeSettings">経路設定</button>
+                    <div class="dropdown-content" id="route-settings-dropdown">
+                        <input type="text" id="origin-input" placeholder="出発地: 例. 東京駅" data-i18n-placeholder="originPlaceholder">
+                        <input type="text" id="destination-input" placeholder="目的地: 例. 渋谷スクランブル交差点" data-i18n-placeholder="destinationPlaceholder">
+                        <div class="mode-switcher">
+                            <button id="driving-mode-btn" data-mode="DRIVING" class="active" data-i18n="driving">自動車</button>
+                            <button id="bicycling-mode-btn" data-mode="BICYCLING" data-i18n="bicycling">自転車</button>
+                            <button id="walking-mode-btn" data-mode="WALKING" data-i18n="walking">徒歩</button>
+                        </div>
+                        <label for="interval-input" data-i18n="interpolationInterval">補間間隔 (m):</label>
+                        <input type="number" id="interval-input" value="5" min="1" max="100">
+                        <button id="route-button" data-i18n="searchRoute">経路を検索</button>
+                        <button id="load-gpx-button" data-i18n="loadGpx">GPXを読み込む</button>
                     </div>
-                    <label for="interval-input" data-i18n="interpolationInterval">補間間隔 (m):</label>
-                    <input type="number" id="interval-input" value="5" min="1" max="100">
-                    <button id="route-button" data-i18n="searchRoute">経路を検索</button>
-                    <button id="load-gpx-button" data-i18n="loadGpx">GPXを読み込む</button>
+                    <input type="file" id="gpx-file-input" accept=".gpx" style="display: none;">
                 </div>
-                <input type="file" id="gpx-file-input" accept=".gpx" style="display: none;">
+                <div class="action-group">
+                    <label for="speed-input" data-i18n="speed">速度 (km/時):</label>
+                    <input type="number" id="speed-input" value="0" min="1" max="60">
+                    <button id="toggle-tour-button" disabled data-i18n="startTour">ツアー開始</button>
+                    <button id="ble-connect-button" data-i18n="connectPower">パワーソースに接続</button>
+                    <button id="hr-connect-button" data-i18n="connectHr">心拍計に接続</button>
+                    <button id="log-toggle-button" data-i18n="startLog">ログ開始</button>
+                </div>
             </div>
-            <div class="action-group">
-                <label for="speed-input" data-i18n="speed">速度 (km/時):</label>
-                <input type="number" id="speed-input" value="0" min="1" max="60">
-                <button id="toggle-tour-button" disabled data-i18n="startTour">巡回開始</button>
-                <button id="ble-connect-button" data-i18n="connectPower">パワーソースに接続</button>
-                <button id="hr-connect-button" data-i18n="connectHr">心拍計に接続</button>
-                <button id="log-toggle-button" data-i18n="startLog">ログ開始</button>
+            <div class="header-links">
+                <div id="lang-switcher">
+                    <button data-lang="ja" class="lang-btn active">日本語</button>
+                    <button data-lang="en" class="lang-btn">English</button>
+                </div>
+                <a href="https://github.com/nekoerimaki/StreetMoView" target="_blank" rel="noopener noreferrer">
+                    Source Code
+                </a>
             </div>
         </div>
         <div id="info-display">
@@ -399,17 +413,6 @@
             <div id="map"></div>
         </div>
     </div>
-
-    <footer>
-        <div id="lang-switcher">
-            <button data-lang="ja" class="lang-btn active">日本語</button>
-            <button data-lang="en" class="lang-btn">English</button>
-        </div>
-        <a href="https://github.com/nekoerimaki/StreetMoView" target="_blank" rel="noopener noreferrer">
-            Source Code on GitHub
-        </a>
-    </footer>
-
     <div id="message-box"></div>
 
     <script>
