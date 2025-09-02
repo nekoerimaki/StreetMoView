@@ -250,6 +250,23 @@
         .header-links a:hover {
             text-decoration: underline;
         }
+        #fullscreen-button {
+            background-color: transparent;
+            border: none;
+            box-shadow: none;
+            width: 40px;
+            height: 40px;
+            padding: 0px;
+            cursor: pointer;
+            color: #3498db;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #fullscreen-button:hover {
+            background-color: #ecf0f1;
+            transform: none;
+        }
 
         /* Responsive design for mobile */
         @media (max-width: 767px) {
@@ -376,9 +393,14 @@
                     <button data-lang="ja" class="lang-btn active">日本語</button>
                     <button data-lang="en" class="lang-btn">English</button>
                 </div>
-                <a href="https://github.com/nekoerimaki/StreetMoView" target="_blank" rel="noopener noreferrer">
-                    Source Code
-                </a>
+                <button id="fullscreen-button" title="フルスクリーン">
+                    <svg class="icon-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="36" height="36">
+                        <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+                    </svg>
+                    <svg class="icon-exit-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="36" height="36" style="display: none;">
+                        <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+                    </svg>
+                </button>
             </div>
         </div>
         <div id="info-display">
@@ -504,6 +526,9 @@
                 powerZeroStop: 'パワーが0Wになりました。ツアーを停止します。',
                 powerDetectedStart: 'パワーを検出。ツアーを開始します。',
                 jumpDisabledDuringTour: 'ツアー中はジャンプできません。',
+                fullscreen: 'フルスクリーン',
+                exitFullscreen: 'フルスクリーン解除',
+                fullscreenError: 'フルスクリーンモードへの移行に失敗しました: ',
             },
             en: {
                 routeSettings: 'Route Settings',
@@ -575,6 +600,9 @@
                 powerZeroStop: 'Power is 0W. Stopping the tour.',
                 powerDetectedStart: 'Power detected. Starting the tour.',
                 jumpDisabledDuringTour: 'Cannot jump during an active tour.',
+                fullscreen: 'Fullscreen',
+                exitFullscreen: 'Exit Fullscreen',
+                fullscreenError: 'Error attempting to enable full-screen mode: ',
             }
         };
         let currentLang = 'ja';
@@ -976,6 +1004,7 @@
         const directionButtons = document.querySelectorAll('#direction-switcher button');
         const speedInput = document.getElementById('speed-input');
         const travelModeButtons = document.querySelectorAll('.mode-switcher button');
+        let fullscreenButton;
         let currentTravelMode = 'DRIVING';
 
         const defaultSettings = {
@@ -983,6 +1012,40 @@
             'BICYCLING': { speed: 15, interval: 3 },
             'WALKING': { speed: 4, interval: 1 }
         };
+
+        /**
+         * フルスクリーンモードを切り替えます。
+         */
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    showMessage(`${uiStrings[currentLang].fullscreenError}${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        /**
+         * フルスクリーンボタンのテキストを現在の状態に合わせて更新します。
+         */
+        function updateFullscreenButtonState() {
+            if (!fullscreenButton) return;
+            const iconFullscreen = fullscreenButton.querySelector('.icon-fullscreen');
+            const iconExitFullscreen = fullscreenButton.querySelector('.icon-exit-fullscreen');
+
+            if (document.fullscreenElement) {
+                iconFullscreen.style.display = 'none';
+                iconExitFullscreen.style.display = 'block';
+                fullscreenButton.title = uiStrings[currentLang].exitFullscreen;
+            } else {
+                iconFullscreen.style.display = 'block';
+                iconExitFullscreen.style.display = 'none';
+                fullscreenButton.title = uiStrings[currentLang].fullscreen;
+            }
+        }
 
         /**
          * UIの言語を設定します。
@@ -1014,6 +1077,7 @@
             bleConnectButton.textContent = (bleDevice && bleDevice.gatt.connected) ? uiStrings[lang].disconnect : uiStrings[lang].connectPower;
             hrConnectButton.textContent = (hrDevice && hrDevice.gatt.connected) ? uiStrings[lang].disconnect : uiStrings[lang].connectHr;
             logToggleButton.textContent = isLogging ? uiStrings[lang].stopLog : uiStrings[lang].startLog;
+            updateFullscreenButtonState();
 
             // マーカーのタイトルを更新
             if (startMarker) startMarker.setTitle(uiStrings[lang].startPoint);
@@ -2112,6 +2176,10 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
+            fullscreenButton = document.getElementById('fullscreen-button');
+            fullscreenButton.addEventListener('click', toggleFullscreen);
+            document.addEventListener('fullscreenchange', updateFullscreenButtonState);
+
             loadMapsScript();
             setLanguage(currentLang); // 初期言語を設定
         });
