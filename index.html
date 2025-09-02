@@ -205,11 +205,39 @@
         }
 
         footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             text-align: center;
             padding: 10px;
             background-color: #fff;
             box-shadow: 0 -1px 4px rgba(0,0,0,0.1);
             z-index: 5;
+        }
+        #lang-switcher {
+            display: flex;
+            gap: 5px;
+        }
+
+        .lang-btn {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: none;
+            transform: none;
+        }
+        .lang-btn:hover {
+            background-color: #bdc3c7;
+            transform: none;
+        }
+        .lang-btn.active {
+            background-color: #3498db;
+            color: white;
+            border-color: #3498db;
         }
         footer a {
             color: #3498db;
@@ -299,66 +327,66 @@
     <div id="main-container">
         <div class="controls-area">
             <div class="dropdown-container">
-                <button id="route-settings-button">経路設定</button>
+                <button id="route-settings-button" data-i18n="routeSettings">経路設定</button>
                 <div class="dropdown-content" id="route-settings-dropdown">
-                    <input type="text" id="origin-input" placeholder="出発地: 例. 東京駅">
-                    <input type="text" id="destination-input" placeholder="目的地: 例. 渋谷スクランブル交差点">
+                    <input type="text" id="origin-input" placeholder="出発地: 例. 東京駅" data-i18n-placeholder="originPlaceholder">
+                    <input type="text" id="destination-input" placeholder="目的地: 例. 渋谷スクランブル交差点" data-i18n-placeholder="destinationPlaceholder">
                     <div class="mode-switcher">
-                        <button id="driving-mode-btn" data-mode="DRIVING" class="active">自動車</button>
-                        <button id="bicycling-mode-btn" data-mode="BICYCLING">自転車</button>
-                        <button id="walking-mode-btn" data-mode="WALKING">徒歩</button>
+                        <button id="driving-mode-btn" data-mode="DRIVING" class="active" data-i18n="driving">自動車</button>
+                        <button id="bicycling-mode-btn" data-mode="BICYCLING" data-i18n="bicycling">自転車</button>
+                        <button id="walking-mode-btn" data-mode="WALKING" data-i18n="walking">徒歩</button>
                     </div>
-                    <label for="interval-input">補間間隔 (m):</label>
+                    <label for="interval-input" data-i18n="interpolationInterval">補間間隔 (m):</label>
                     <input type="number" id="interval-input" value="5" min="1" max="100">
-                    <button id="route-button">経路を検索</button>
-                    <button id="load-gpx-button">GPXを読み込む</button>
+                    <button id="route-button" data-i18n="searchRoute">経路を検索</button>
+                    <button id="load-gpx-button" data-i18n="loadGpx">GPXを読み込む</button>
                 </div>
                 <input type="file" id="gpx-file-input" accept=".gpx" style="display: none;">
             </div>
             <div class="action-group">
-                <label for="speed-input">速度 (km/時):</label>
+                <label for="speed-input" data-i18n="speed">速度 (km/時):</label>
                 <input type="number" id="speed-input" value="0" min="1" max="60">
-                <button id="toggle-tour-button" disabled>巡回開始</button>
-                <button id="ble-connect-button">パワーソースに接続</button>
-                <button id="hr-connect-button">心拍計に接続</button>
-                <button id="log-toggle-button">ログ開始</button>
+                <button id="toggle-tour-button" disabled data-i18n="startTour">巡回開始</button>
+                <button id="ble-connect-button" data-i18n="connectPower">パワーソースに接続</button>
+                <button id="hr-connect-button" data-i18n="connectHr">心拍計に接続</button>
+                <button id="log-toggle-button" data-i18n="startLog">ログ開始</button>
             </div>
         </div>
         <div id="info-display">
             <div class="info-item">
-                <span class="info-label">移動距離</span>
+                <span class="info-label" data-i18n="distTraveled">移動距離</span>
                 <span class="info-value" id="dist-traveled">0.00 km</span>
             </div>
             <div class="info-item">
-                <span class="info-label">経路全体</span>
+                <span class="info-label" data-i18n="totalDist">経路全体</span>
                 <span class="info-value" id="total-dist">0.00 km</span>
             </div>
             <div class="info-item">
-                <span class="info-label">移動時間</span>
+                <span class="info-label" data-i18n="timeElapsed">移動時間</span>
                 <span class="info-value" id="time-elapsed">00:00:00</span>
             </div>
             <div class="info-item">
-                <span class="info-label">残り時間</span>
+                <span class="info-label" data-i18n="timeRemaining">残り時間</span>
                 <span class="info-value" id="time-remaining">00:00:00</span>
             </div>
             <div class="info-item">
-                <span class="info-label">標高</span>
+                <span class="info-label" data-i18n="elevation">標高</span>
                 <span class="info-value" id="elevation">N/A</span>
             </div>
             <div class="info-item">
-                <span class="info-label">勾配</span>
+                <span class="info-label" data-i18n="gradient">勾配</span>
                 <span class="info-value" id="gradient">N/A</span>
             </div>
             <div class="info-item">
-                <span class="info-label">パワー</span>
+                <span class="info-label" data-i18n="power">パワー</span>
                 <span class="info-value" id="power-display">0 W</span>
             </div>
             <div class="info-item">
-                <span class="info-label">ケイデンス</span>
+                <span class="info-label" data-i18n="cadence">ケイデンス</span>
                 <span class="info-value" id="cadence-display">0 rpm</span>
             </div>
             <div class="info-item">
-                <span class="info-label">心拍数</span>
+                <span class="info-label" data-i18n="heartRate">心拍数</span>
                 <span class="info-value" id="hr-display">0 bpm</span>
             </div>
         </div>
@@ -373,6 +401,10 @@
     </div>
 
     <footer>
+        <div id="lang-switcher">
+            <button data-lang="ja" class="lang-btn active">日本語</button>
+            <button data-lang="en" class="lang-btn">English</button>
+        </div>
         <a href="https://github.com/nekoerimaki/StreetMoView" target="_blank" rel="noopener noreferrer">
             Source Code on GitHub
         </a>
@@ -382,6 +414,138 @@
 
     <script>
         const GOOGLE_MAPS_API_KEY = 'AIzaSyC7uCB2u3BM1kA2xr-qiyrLTHjOrZfIKdo';
+
+        const uiStrings = {
+            ja: {
+                routeSettings: '経路設定',
+                originPlaceholder: '出発地: 例. 東京駅',
+                destinationPlaceholder: '目的地: 例. 渋谷スクランブル交差点',
+                driving: '自動車',
+                bicycling: '自転車',
+                walking: '徒歩',
+                interpolationInterval: '補間間隔 (m):',
+                searchRoute: '経路を検索',
+                loadGpx: 'GPXを読み込む',
+                speed: '速度 (km/時):',
+                startTour: '巡回開始',
+                stopTour: '巡回停止',
+                connectPower: 'パワーソースに接続',
+                connectHr: '心拍計に接続',
+                disconnect: '接続解除',
+                startLog: 'ログ開始',
+                stopLog: 'ログ終了',
+                distTraveled: '移動距離',
+                totalDist: '経路全体',
+                timeElapsed: '移動時間',
+                timeRemaining: '残り時間',
+                elevation: '標高',
+                gradient: '勾配',
+                power: 'パワー',
+                cadence: 'ケイデンス',
+                heartRate: '心拍数',
+                startPoint: '出発地',
+                endPoint: '目的地',
+                currentLocation: '現在地',
+                // messages
+                noStreetView: 'この経路のストリートビューデータが見つかりませんでした。',
+                routeFound: '経路が見つかりました！巡回を開始できます。',
+                elevationProcessed: '経路の標高データを補正しました。',
+                elevationError: '標高データの取得または補正に失敗しました。',
+                originDestRequired: '出発地と目的地を入力してください。',
+                invalidInterval: '有効な補間間隔を入力してください。',
+                routeSearchFailed: '経路検索に失敗しました: ',
+                routeNotFound: '経路が見つかりませんでした。場所を確認してください。',
+                gpxNoTrackpoints: 'GPXファイルにトラックポイントが見つかりませんでした。',
+                gpxNoCoordinates: 'GPXファイルから有効な座標を抽出できませんでした。',
+                gpxParseError: 'GPXファイルの解析中にエラーが発生しました。',
+                destinationReached: '目的地に到達しました。',
+                noRouteForTour: 'まず経路を検索するかGPXファイルを読み込んでください。',
+                invalidSpeed: '有効な速度を入力してください。',
+                searchingDevice: 'デバイスを検索中です...',
+                connectingDevice: 'デバイスに接続中です...',
+                gattConnected: 'GATTサーバーに接続しました。',
+                ftmsConnected: 'FTMSデバイスに接続しました。',
+                btConnectionFailed: 'Bluetooth接続に失敗しました:',
+                btConnectionError: 'Bluetooth接続エラー: ',
+                deviceDisconnected: 'デバイスから切断しました。',
+                searchingHr: '心拍計を検索中です...',
+                connectingHr: '心拍計に接続中です...',
+                hrConnected: '心拍計に接続しました。',
+                hrConnectionFailed: '心拍計の接続に失敗しました:',
+                hrConnectionError: '心拍計接続エラー: ',
+                hrDisconnected: '心拍計から切断しました。',
+                logStarted: 'ログ記録を開始しました。',
+                logStopped: 'ログ記録を終了しました。',
+                confirmSaveTcx: '記録したアクティビティをTCXファイルとして保存しますか？',
+                powerZeroStop: 'パワーが0Wになりました。巡回を停止します。',
+                powerDetectedStart: 'パワーを検出。巡回を開始します。',
+            },
+            en: {
+                routeSettings: 'Route Settings',
+                originPlaceholder: 'Origin: e.g., Tokyo Station',
+                destinationPlaceholder: 'Destination: e.g., Shibuya Crossing',
+                driving: 'Driving',
+                bicycling: 'Bicycling',
+                walking: 'Walking',
+                interpolationInterval: 'Interval (m):',
+                searchRoute: 'Search Route',
+                loadGpx: 'Load GPX',
+                speed: 'Speed (km/h):',
+                startTour: 'Start Tour',
+                stopTour: 'Stop Tour',
+                connectPower: 'Connect Power Source',
+                connectHr: 'Connect Heart Rate',
+                disconnect: 'Disconnect',
+                startLog: 'Start Logging',
+                stopLog: 'Stop Logging',
+                distTraveled: 'Distance Traveled',
+                totalDist: 'Total Distance',
+                timeElapsed: 'Time Elapsed',
+                timeRemaining: 'Time Remaining',
+                elevation: 'Elevation',
+                gradient: 'Gradient',
+                power: 'Power',
+                cadence: 'Cadence',
+                heartRate: 'Heart Rate',
+                startPoint: 'Start Point',
+                endPoint: 'End Point',
+                currentLocation: 'Current Location',
+                // messages
+                noStreetView: 'Street View data could not be found for this route.',
+                routeFound: 'Route found! You can start the tour.',
+                elevationProcessed: 'Route elevation data has been processed.',
+                elevationError: 'Failed to get or process elevation data.',
+                originDestRequired: 'Please enter an origin and destination.',
+                invalidInterval: 'Please enter a valid interpolation interval.',
+                routeSearchFailed: 'Directions request failed due to: ',
+                routeNotFound: 'Route not found. Please check the locations.',
+                gpxNoTrackpoints: 'No trackpoints found in the GPX file.',
+                gpxNoCoordinates: 'Could not extract valid coordinates from the GPX file.',
+                gpxParseError: 'An error occurred while parsing the GPX file.',
+                destinationReached: 'You have reached your destination.',
+                noRouteForTour: 'Please search for a route or load a GPX file first.',
+                invalidSpeed: 'Please enter a valid speed.',
+                searchingDevice: 'Searching for device...',
+                connectingDevice: 'Connecting to device...',
+                gattConnected: 'Connected to GATT Server.',
+                ftmsConnected: 'Connected to FTMS device.',
+                btConnectionFailed: 'Bluetooth connection failed:',
+                btConnectionError: 'Bluetooth connection error: ',
+                deviceDisconnected: 'Disconnected from device.',
+                searchingHr: 'Searching for heart rate monitor...',
+                connectingHr: 'Connecting to heart rate monitor...',
+                hrConnected: 'Connected to heart rate monitor.',
+                hrConnectionFailed: 'Failed to connect to heart rate monitor:',
+                hrConnectionError: 'Heart rate monitor connection error: ',
+                hrDisconnected: 'Disconnected from heart rate monitor.',
+                logStarted: 'Log recording started.',
+                logStopped: 'Log recording stopped.',
+                confirmSaveTcx: 'Do you want to save the recorded activity as a TCX file?',
+                powerZeroStop: 'Power is 0W. Stopping the tour.',
+                powerDetectedStart: 'Power detected. Starting the tour.',
+            }
+        };
+        let currentLang = 'ja';
 
         /**
          * メッセージボックスにメッセージを表示します。
@@ -758,6 +922,46 @@
             'WALKING': { speed: 4, interval: 1 }
         };
 
+        /**
+         * UIの言語を設定します。
+         * @param {string} lang - 言語コード ('ja' or 'en')
+         */
+        function setLanguage(lang) {
+            if (!uiStrings[lang]) return;
+            currentLang = lang;
+            document.documentElement.lang = lang;
+
+            // data-i18n属性を持つ静的なテキストを更新
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.dataset.i18n;
+                if (uiStrings[lang][key]) {
+                    el.textContent = uiStrings[lang][key];
+                }
+            });
+
+            // data-i18n-placeholder属性を持つプレースホルダーを更新
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.dataset.i18nPlaceholder;
+                if (uiStrings[lang][key]) {
+                    el.placeholder = uiStrings[lang][key];
+                }
+            });
+
+            // 状態によってテキストが変わるボタンを更新
+            toggleTourButton.textContent = isTourRunning ? uiStrings[lang].stopTour : uiStrings[lang].startTour;
+            bleConnectButton.textContent = (bleDevice && bleDevice.gatt.connected) ? uiStrings[lang].disconnect : uiStrings[lang].connectPower;
+            hrConnectButton.textContent = (hrDevice && hrDevice.gatt.connected) ? uiStrings[lang].disconnect : uiStrings[lang].connectHr;
+            logToggleButton.textContent = isLogging ? uiStrings[lang].stopLog : uiStrings[lang].startLog;
+
+            // マーカーのタイトルを更新
+            if (startMarker) startMarker.setTitle(uiStrings[lang].startPoint);
+            if (endMarker) endMarker.setTitle(uiStrings[lang].endPoint);
+            if (currentLocationMarker) currentLocationMarker.setTitle(uiStrings[lang].currentLocation);
+
+            // 言語スイッチャーボタンのアクティブ状態を更新
+            document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.lang === lang));
+        }
+
         // ドロップダウンの表示/非表示を切り替える
         routeSettingsButton.addEventListener('click', (event) => {
             event.stopPropagation();
@@ -843,7 +1047,7 @@
         async function processRoute(path) {
             routePoints = path;
             if (routePoints.length === 0) {
-                showMessage('この経路のストリートビューデータが見つかりませんでした。');
+                showMessage(uiStrings[currentLang].noStreetView);
                 return;
             }
 
@@ -886,14 +1090,14 @@
                         locations: chunk,
                     });
                     if (!chunkResults || chunkResults.length !== chunk.length) {
-                        const errorMessage = chunkResults ? `期待した結果の数(${chunk.length})と実際の結果の数(${chunkResults.length})が異なります。` : 'APIから結果が返されませんでした。';
-                        throw new Error(`標高取得チャンク[${i}-${i+chunk.length-1}]でエラー: ${errorMessage}`);
+                        const errorMessage = chunkResults ? `Expected ${chunk.length} results but got ${chunkResults.length}.` : 'No results from API.';
+                        throw new Error(`Elevation fetch error in chunk [${i}-${i+chunk.length-1}]: ${errorMessage}`);
                     }
                     allElevationResults = allElevationResults.concat(chunkResults);
                 }
 
                 if (allElevationResults.length !== sampledPoints.length) {
-                    throw new Error('サンプリング地点の標高取得に失敗しました。');
+                    throw new Error('Failed to get elevation for all sampled points.');
                 }
                 sampledPointsData.forEach((data, i) => {
                     data.elevation = allElevationResults[i].elevation;
@@ -952,10 +1156,10 @@
                 } else {
                     routeGradients.fill(0);
                 }
-                showMessage('経路の標高データを補正しました。', false);
+                showMessage(uiStrings[currentLang].elevationProcessed, false);
             } catch (error) {
-                showMessage('標高データの取得または補正に失敗しました。', true);
-                console.error("標高処理エラー:", error);
+                showMessage(uiStrings[currentLang].elevationError, true);
+                console.error("Elevation processing error:", error);
                 routeElevations = new Array(routePoints.length).fill(0);
             }
 
@@ -963,17 +1167,17 @@
                 map: map,
                 position: firstPoint,
                 label: 'A',
-                title: '出発地',
+                title: uiStrings[currentLang].startPoint,
             });
             endMarker = new google.maps.Marker({
                 map: map,
                 position: lastPoint,
                 label: 'B',
-                title: '目的地',
+                title: uiStrings[currentLang].endPoint,
             });
             currentLocationMarker = new google.maps.Marker({
                 map: map,
-                title: '現在地',
+                title: uiStrings[currentLang].currentLocation,
                 icon: {
                     path: 'M -5,0 5,0 M 0,-5 0,5',
                     scale: 4,
@@ -1002,7 +1206,7 @@
                 }
             }
 
-            showMessage('経路が見つかりました！巡回を開始できます。', false);
+            showMessage(uiStrings[currentLang].routeFound, false);
             updateInfoDisplay();
             toggleTourButton.disabled = false;
 
@@ -1021,11 +1225,11 @@
             const interpolationInterval = parseFloat(intervalInput.value);
 
             if (!origin || !destination) {
-                showMessage('出発地と目的地を入力してください。');
+                showMessage(uiStrings[currentLang].originDestRequired);
                 return;
             }
             if (isNaN(interpolationInterval) || interpolationInterval <= 0) {
-                showMessage('有効な補間間隔を入力してください。');
+                showMessage(uiStrings[currentLang].invalidInterval);
                 return;
             }
 
@@ -1053,10 +1257,10 @@
 
                     processRoute(interpolatedPath);
                 } else {
-                    throw new Error(`経路検索に失敗しました: ${response.status}`);
+                    throw new Error(`${uiStrings[currentLang].routeSearchFailed}${response.status}`);
                 }
             }).catch((e) => {
-                showMessage('経路が見つかりませんでした。場所を確認してください。');
+                showMessage(uiStrings[currentLang].routeNotFound);
             });
         }
 
@@ -1081,7 +1285,7 @@
 
                     const trkpts = gpxDoc.querySelectorAll('trkpt');
                     if (trkpts.length === 0) {
-                        showMessage('GPXファイルにトラックポイントが見つかりませんでした。');
+                        showMessage(uiStrings[currentLang].gpxNoTrackpoints);
                         return;
                     }
 
@@ -1095,7 +1299,7 @@
                     });
 
                     if (gpxPoints.length === 0) {
-                        showMessage('GPXファイルから有効な座標を抽出できませんでした。');
+                        showMessage(uiStrings[currentLang].gpxNoCoordinates);
                         return;
                     }
 
@@ -1124,7 +1328,7 @@
 
                     processRoute(interpolatedPath);
                 } catch (error) {
-                    showMessage('GPXファイルの解析中にエラーが発生しました。');
+                    showMessage(uiStrings[currentLang].gpxParseError);
                 }
             };
             reader.readAsText(file);
@@ -1159,7 +1363,7 @@
             tourInterval = setInterval(() => {
                 if (currentPointIndex >= routePoints.length - 1) {
                     stopTour();
-                    showMessage('目的地に到達しました。', false);
+                    showMessage(uiStrings[currentLang].destinationReached, false);
                     return;
                 }
 
@@ -1212,7 +1416,7 @@
             }
 
             if (routePoints.length === 0) {
-                showMessage('まず経路を検索するかGPXファイルを読み込んでください。');
+                showMessage(uiStrings[currentLang].noRouteForTour);
                 return;
             }
 
@@ -1220,16 +1424,16 @@
             const interval = parseFloat(intervalInput.value);
 
             if (isNaN(speed) || speed <= 0) {
-                 showMessage('有効な速度を入力してください。', true);
+                 showMessage(uiStrings[currentLang].invalidSpeed, true);
                  return;
             }
             if (isNaN(interval) || interval <= 0) {
-                showMessage('有効な補間間隔を入力してください。');
+                showMessage(uiStrings[currentLang].invalidInterval);
                 return;
             }
 
             isTourRunning = true;
-            toggleTourButton.textContent = '巡回停止';
+            toggleTourButton.textContent = uiStrings[currentLang].stopTour;
             tourStartTime = Date.now();
 
             map.setZoom(17);
@@ -1246,7 +1450,7 @@
                 console.log(formatTime(tourStartTime));
                 console.log(formatTime(totalTimeElapsed));
             }
-            toggleTourButton.textContent = '巡回開始';
+            toggleTourButton.textContent = uiStrings[currentLang].startTour;
         }
 
         async function connectToBleDevice() {
@@ -1256,14 +1460,14 @@
             }
 
             try {
-                showMessage('デバイスを検索中です...', false);
+                showMessage(uiStrings[currentLang].searchingDevice, false);
                 bleDevice = await navigator.bluetooth.requestDevice({
                     filters: [{ services: [FTMS_SERVICE_UUID] }]
                 });
 
-                showMessage('デバイスに接続中です...', false);
+                showMessage(uiStrings[currentLang].connectingDevice, false);
                 const server = await bleDevice.gatt.connect();
-                showMessage('GATTサーバーに接続しました。', false);
+                showMessage(uiStrings[currentLang].gattConnected, false);
 
                 const ftmsService = await server.getPrimaryService(FTMS_SERVICE_UUID);
                 ftmsCharacteristic = await ftmsService.getCharacteristic(INDOOR_BIKE_DATA_UUID);
@@ -1271,14 +1475,14 @@
                 await ftmsCharacteristic.startNotifications();
                 ftmsCharacteristic.addEventListener('characteristicvaluechanged', handleFTMSData);
 
-                showMessage('FTMSデバイスに接続しました。', false);
-                bleConnectButton.textContent = '接続解除';
+                showMessage(uiStrings[currentLang].ftmsConnected, false);
+                bleConnectButton.textContent = uiStrings[currentLang].disconnect;
                 bleConnectButton.style.backgroundColor = '#e74c3c';
 
             } catch (error) {
-                console.error("Bluetooth接続に失敗しました:", error);
-                showMessage(`Bluetooth接続エラー: ${error.message}`);
-                bleConnectButton.textContent = 'パワーソースに接続';
+                console.error(`${uiStrings[currentLang].btConnectionFailed}`, error);
+                showMessage(`${uiStrings[currentLang].btConnectionError}${error.message}`);
+                bleConnectButton.textContent = uiStrings[currentLang].connectPower;
                 bleConnectButton.style.backgroundColor = '#3498db';
                 bleDevice = null;
                 ftmsCharacteristic = null;
@@ -1288,14 +1492,14 @@
         function disconnectFromBleDevice() {
             if (bleDevice && bleDevice.gatt.connected) {
                 bleDevice.gatt.disconnect();
-                showMessage('デバイスから切断しました。', false);
+                showMessage(uiStrings[currentLang].deviceDisconnected, false);
             }
             if (ftmsCharacteristic) {
                 ftmsCharacteristic.removeEventListener('characteristicvaluechanged', handleFTMSData);
                 ftmsCharacteristic = null;
             }
             speedBuffer = []; // 速度バッファをリセット
-            bleConnectButton.textContent = 'パワーソースに接続';
+            bleConnectButton.textContent = uiStrings[currentLang].connectPower;
             bleConnectButton.style.backgroundColor = '#3498db';
             document.getElementById('power-display').textContent = '0 W';
             document.getElementById('cadence-display').textContent = '0 rpm';
@@ -1309,14 +1513,14 @@
             }
 
             try {
-                showMessage('心拍計を検索中です...', false);
+                showMessage(uiStrings[currentLang].searchingHr, false);
                 hrDevice = await navigator.bluetooth.requestDevice({
                     filters: [{ services: [HR_SERVICE_UUID] }]
                 });
 
-                showMessage('心拍計に接続中です...', false);
+                showMessage(uiStrings[currentLang].connectingHr, false);
                 const server = await hrDevice.gatt.connect();
-                showMessage('GATTサーバーに接続しました。', false);
+                showMessage(uiStrings[currentLang].gattConnected, false);
 
                 const hrService = await server.getPrimaryService(HR_SERVICE_UUID);
                 hrCharacteristic = await hrService.getCharacteristic(HR_MEASUREMENT_UUID);
@@ -1324,14 +1528,14 @@
                 await hrCharacteristic.startNotifications();
                 hrCharacteristic.addEventListener('characteristicvaluechanged', handleHRData);
 
-                showMessage('心拍計に接続しました。', false);
-                hrConnectButton.textContent = '接続解除';
+                showMessage(uiStrings[currentLang].hrConnected, false);
+                hrConnectButton.textContent = uiStrings[currentLang].disconnect;
                 hrConnectButton.style.backgroundColor = '#e74c3c';
 
             } catch (error) {
-                console.error("心拍計の接続に失敗しました:", error);
-                showMessage(`心拍計接続エラー: ${error.message}`);
-                hrConnectButton.textContent = '心拍計に接続';
+                console.error(`${uiStrings[currentLang].hrConnectionFailed}`, error);
+                showMessage(`${uiStrings[currentLang].hrConnectionError}${error.message}`);
+                hrConnectButton.textContent = uiStrings[currentLang].connectHr;
                 hrConnectButton.style.backgroundColor = '#3498db';
                 hrDevice = null;
                 hrCharacteristic = null;
@@ -1341,13 +1545,13 @@
         function disconnectFromHrDevice() {
             if (hrDevice && hrDevice.gatt.connected) {
                 hrDevice.gatt.disconnect();
-                showMessage('心拍計から切断しました。', false);
+                showMessage(uiStrings[currentLang].hrDisconnected, false);
             }
             if (hrCharacteristic) {
                 hrCharacteristic.removeEventListener('characteristicvaluechanged', handleHRData);
                 hrCharacteristic = null;
             }
-            hrConnectButton.textContent = '心拍計に接続';
+            hrConnectButton.textContent = uiStrings[currentLang].connectHr;
             hrConnectButton.style.backgroundColor = '#3498db';
             document.getElementById('hr-display').textContent = '0 bpm';
         }
@@ -1377,15 +1581,15 @@
             isLogging = !isLogging;
             if (isLogging) {
                 logData = []; // ログを初期化
-                logToggleButton.textContent = 'ログ終了';
+                logToggleButton.textContent = uiStrings[currentLang].stopLog;
                 logToggleButton.style.backgroundColor = '#f39c12'; // 記録中を示す色
-                showMessage('ログ記録を開始しました。', false);
+                showMessage(uiStrings[currentLang].logStarted, false);
             } else {
-                logToggleButton.textContent = 'ログ開始';
+                logToggleButton.textContent = uiStrings[currentLang].startLog;
                 logToggleButton.style.backgroundColor = '#3498db';
-                showMessage('ログ記録を終了しました。', false);
+                showMessage(uiStrings[currentLang].logStopped, false);
                 if (logData.length > 1) { // データが2点以上ないとLapが作れない
-                    if (confirm('記録したアクティビティをTCXファイルとして保存しますか？')) {
+                    if (confirm(uiStrings[currentLang].confirmSaveTcx)) {
                         saveLogAsTcx();
                     }
                 }
@@ -1536,12 +1740,12 @@
                     if (isTourRunning) {
                         if (power <= 0) {
                             stopTour();
-                            showMessage('パワーが0Wになりました。巡回を停止します。', true);
+                            showMessage(uiStrings[currentLang].powerZeroStop, true);
                         }
                     } else {
                         if (power > 0) {
                             startTour();
-                            showMessage('パワーを検出。巡回を開始します。', true);
+                            showMessage(uiStrings[currentLang].powerDetectedStart, true);
                         }
                     }
                 //}
@@ -1578,6 +1782,13 @@
             bleConnectButton.addEventListener('click', connectToBleDevice);
             logToggleButton.addEventListener('click', toggleLogging);
             hrConnectButton.addEventListener('click', connectToHrDevice);
+
+            // 言語スイッチャーのイベントリスナー
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    setLanguage(e.target.dataset.lang);
+                });
+            });
 
             // 手動での速度変更を検知
             speedInput.addEventListener('input', () => {
@@ -1673,7 +1884,10 @@
             document.head.appendChild(script);
         }
 
-        window.addEventListener('DOMContentLoaded', loadMapsScript);
+        window.addEventListener('DOMContentLoaded', () => {
+            loadMapsScript();
+            setLanguage(currentLang); // 初期言語を設定
+        });
     </script>
 </body>
 </html>
