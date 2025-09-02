@@ -823,7 +823,7 @@
         function updateInfoDisplay() {
             const totalDistanceKm = (totalDistance / 1000).toFixed(2);
             const distanceTraveledKm = (distanceTraveled / 1000).toFixed(2);
-            const timeElapsed = totalTimeElapsed + (Date.now() - tourStartTime) / 1000;
+            const timeElapsed = totalTimeElapsed + (tourStartTime > 0 ? (Date.now() - tourStartTime) / 1000 : 0);
 
             const remainingDistance = Math.max(0, totalDistance - distanceTraveled);
             const speedKmH = parseFloat(document.getElementById('speed-input').value);
@@ -886,7 +886,11 @@
         let gpxRoutePolyline = null;
         let cumulativeDistances = [];
         let sampledPointsData = [];
-        let tourTimerId;
+        let physicsIntervalId = null;
+        let lastPhysicsUpdateTime = 0;
+        let distanceSinceLastSvUpdate = 0;
+        const STREETVIEW_UPDATE_DISTANCE = 20; // 20mごとにストリートビューを更新
+        const PHYSICS_INTERVAL_MS = 500; // 500ms (2Hz)
         let currentLocationMarker;
         let isTourRunning = false;
         let currentPointIndex = 0;
@@ -1359,106 +1363,97 @@
             reader.readAsText(file);
         });
 
-        /**
-         * ツアーの各ステップを実行する非同期関数。
-         * 次の地点にストリートビューが存在するか確認し、存在する場合のみ表示を更新します。
-         * 処理完了後、次のステップをsetTimeoutで予約します。
-         */
-        async function tourStep() {
-            if (!isTourRunning) return;
-
-            if (currentPointIndex >= routePoints.length - 1) {
-                stopTour();
-                showMessage(uiStrings[currentLang].destinationReached, false);
-                return;
-            }
-
-            distanceTraveled += getDistance(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
-            currentPointIndex++;
+        async function updateStreetView() {
+            if (!isTourRunning || currentPointIndex >= routePoints.length) return;
 
             const targetPosition = routePoints[currentPointIndex];
 
             try {
                 const { data } = await streetViewService.getPanorama({
                     location: targetPosition,
-                    radius: 100, // 検索半径を100mに設定
-                    source: google.maps.StreetViewSource.DEFAULT, // 公式・ユーザー投稿の両方を対象
-                    preference: google.maps.StreetViewPreference.NEAREST // 最も近い画像を優先
+                    radius: 100,
+                    source: google.maps.StreetViewSource.DEFAULT,
+                    preference: google.maps.StreetViewPreference.NEAREST
                 });
 
-                // パノラマが見つかった場合のみ、ストリートビューを更新
                 if (data && data.location) {
                     const currentPanoId = panorama.getPano();
                     const newPanoId = data.location.pano;
-                    const panoramaPosition = data.location.latLng;
 
-                    // パノラマIDが変更された場合のみ、画像全体を読み込むsetPositionを実行
                     if (newPanoId && newPanoId !== currentPanoId) {
-                        panorama.setPosition(panoramaPosition);
+                        panorama.setPosition(data.location.latLng);
                     }
 
                     if (currentPointIndex + 1 < routePoints.length) {
-                        // 進行方向は経路上の次のポイントを基準に計算
                         const heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
                         if (!isNaN(heading)) {
-                            // 視点(POV)の更新は毎回行う
                             panorama.setPov({ heading: heading, pitch: 0, zoom: 1 });
                         }
                     }
                 } else {
-                    // パノラマが見つからない場合は、黒い画面になるのを避けるため何もしない
                     console.log(`No panorama found near point ${currentPointIndex}. Skipping Street View update.`);
                 }
             } catch (e) {
-                // エラーコードとメッセージをコンソールに出力して原因を特定しやすくする
                 console.error(`Error getting panorama data for point ${currentPointIndex}:`, e);
                 if (e.code) console.error(`Street View API Error Code: ${e.code}`);
             }
+        }
 
-            // 地図上のマーカーは常に経路上の座標に更新
-            currentLocationMarker.setPosition(targetPosition);
-            map.panTo(targetPosition);
+        function updatePhysics() {
+            if (!isTourRunning) return;
+
+            const now = Date.now();
+            const deltaTime = (now - lastPhysicsUpdateTime) / 1000; // 秒単位
+            lastPhysicsUpdateTime = now;
+
+            const speedKmh = parseFloat(speedInput.value) || 0;
+            const speedMps = speedKmh * 1000 / 3600;
+
+            const deltaDistance = speedMps * deltaTime;
+            distanceTraveled += deltaDistance;
+            distanceSinceLastSvUpdate += deltaDistance;
+
+            if (distanceTraveled >= totalDistance) {
+                distanceTraveled = totalDistance;
+                currentPointIndex = routePoints.length - 1;
+                if(currentLocationMarker && routePoints.length > 0) {
+                    currentLocationMarker.setPosition(routePoints[currentPointIndex]);
+                }
+                updateInfoDisplay();
+                stopTour();
+                showMessage(uiStrings[currentLang].destinationReached, false);
+                return;
+            }
+
+            // 現在のインデックスを更新
+            while (currentPointIndex < cumulativeDistances.length - 1 && distanceTraveled > cumulativeDistances[currentPointIndex + 1]) {
+                currentPointIndex++;
+            }
+
+            const currentPosition = routePoints[currentPointIndex];
+            currentLocationMarker.setPosition(currentPosition);
+            map.panTo(currentPosition);
+
             updateInfoDisplay();
+
+            if (distanceSinceLastSvUpdate >= STREETVIEW_UPDATE_DISTANCE) {
+                updateStreetView();
+                distanceSinceLastSvUpdate = 0;
+            }
 
             if (isLogging) {
                 logData.push({
                     timestamp: new Date().toISOString(),
-                    position: targetPosition,
+                    position: currentPosition,
                     power: currentPower,
                     cadence: currentCadence,
                     heartRate: currentHeartRate,
                     distance: distanceTraveled,
-                    speed: currentTourSpeedKmH
+                    speed: speedKmh
                 });
             }
-
-            // 次のステップをスケジュール
-            if (isTourRunning) {
-                const speedKmH = parseFloat(speedInput.value) || 0;
-                const intervalDistance = parseFloat(intervalInput.value);
-                const speedMs = speedKmH * 1000 / 3600;
-
-                let intervalTime = 1000; // 速度0の時のフォールバック
-                if (speedMs > 0) {
-                    intervalTime = (intervalDistance / speedMs) * 1000;
-                }
-
-                // 移動モードに応じてAPIリクエストの最小間隔を調整する。
-                // ユーザー投稿データが多用されるサイクリングや徒歩モードでは、
-                // パノラマの密度が高く、新しい画像の読み込みが頻繁に発生する可能性があるため、
-                // 最小間隔を長めに設定し、タイムアウトのリスクを低減する。
-                const minIntervalDriving = 600; // 自動車モード (ms)
-                const minIntervalCyclingAndWalking = 1000; // 自転車・徒歩モード (ms)
-
-                let minInterval;
-                if (currentTravelMode === 'DRIVING') {
-                    minInterval = minIntervalDriving;
-                } else { // BICYCLING or WALKING
-                    minInterval = minIntervalCyclingAndWalking;
-                }
-                tourTimerId = setTimeout(tourStep, Math.max(intervalTime, minInterval));
-            }
         }
+
 
         function toggleTour() {
             if (isTourRunning) {
@@ -1491,16 +1486,18 @@
             isTourRunning = true;
             toggleTourButton.textContent = uiStrings[currentLang].stopTour;
             tourStartTime = Date.now();
+            lastPhysicsUpdateTime = Date.now();
+            distanceSinceLastSvUpdate = 0;
 
             map.setZoom(17);
 
-            tourStep(); // ツアーループを開始
+            physicsIntervalId = setInterval(updatePhysics, PHYSICS_INTERVAL_MS);
         }
 
         function stopTour() {
-            if (tourTimerId) {
-                clearTimeout(tourTimerId);
-                tourTimerId = null;
+            if (physicsIntervalId) {
+                clearInterval(physicsIntervalId);
+                physicsIntervalId = null;
             }
             isTourRunning = false;
             if (tourStartTime > 0) {
