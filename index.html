@@ -304,6 +304,56 @@
             border-color: #f1c40f;
         }
 
+        /* 場所検索モーダル */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .modal-content h3 {
+            margin: 0;
+            color: #2c3e50;
+        }
+        #place-search-input {
+            width: 100%;
+            padding: 10px;
+            font-size: 1rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .modal-actions button {
+            padding: 8px 20px;
+        }
+
+        /* Google Places Autocomplete suggestions z-index fix */
+        .pac-container {
+            z-index: 2001; /* Must be higher than .modal-overlay's z-index */
+        }
+
 
         /* Responsive design for mobile */
         @media (max-width: 767px) {
@@ -394,15 +444,19 @@
                 <div class="dropdown-container">
                     <button id="route-settings-button" data-i18n="routeSettings">経路設定</button>
                     <div class="dropdown-content" id="route-settings-dropdown">
+                        <button id="jump-to-place-button" data-i18n="jumpToPlace">場所へ移動</button>
                         <input type="text" id="origin-input" placeholder="出発地: 例. 東京駅" data-i18n-placeholder="originPlaceholder">
                         <input type="text" id="destination-input" placeholder="目的地: 例. 渋谷スクランブル交差点" data-i18n-placeholder="destinationPlaceholder">
+                        <button id="dest-to-origin-button" data-i18n="destToOrigin" style="background-color: #95a5a6; font-size: 0.8rem; padding: 4px 8px; width: auto; box-shadow: none;">目的地を出発地に</button>
                         <div class="mode-switcher">
                             <button id="driving-mode-btn" data-mode="DRIVING" data-i18n="driving">自動車</button>
                             <button id="bicycling-mode-btn" data-mode="BICYCLING" class="active" data-i18n="bicycling">自転車</button>
                             <button id="walking-mode-btn" data-mode="WALKING" data-i18n="walking">徒歩</button>
                         </div>
-                        <label for="interval-input" data-i18n="interpolationInterval">補間間隔 (m):</label>
-                        <input type="number" id="interval-input" value="3" min="1" max="100">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                            <label for="interval-input" data-i18n="interpolationInterval" style="white-space: nowrap;">補間間隔 (m):</label>
+                            <input type="number" id="interval-input" value="3" min="1" max="100">
+                        </div>
                         <button id="route-button" data-i18n="searchRoute">経路を検索</button>
                         <button id="load-gpx-button" data-i18n="loadGpx">GPXを読み込む</button>
                     </div>
@@ -492,6 +546,16 @@
             <div id="map"></div>
         </div>
     </div>
+    <div id="place-search-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 data-i18n="searchForPlace">場所を検索</h3>
+            <input type="text" id="place-search-input" data-i18n-placeholder="placeSearchPlaceholder">
+            <div class="modal-actions">
+                <button id="close-modal-button" style="background-color: #95a5a6;" data-i18n="close">閉じる</button>
+                <button id="search-place-button" data-i18n="search">検索</button>
+            </div>
+        </div>
+    </div>
     <div id="message-box"></div>
 
     <script>
@@ -502,7 +566,9 @@
                 routeSettings: '経路設定',
                 originPlaceholder: '出発地: 例. 東京駅',
                 destinationPlaceholder: '目的地: 例. 渋谷スクランブル交差点',
+                destToOrigin: '目的地を出発地に',
                 driving: '自動車',
+                jumpToPlace: '場所へ移動',
                 bicycling: '自転車',
                 walking: '徒歩',
                 interpolationInterval: '補間間隔 (m):',
@@ -578,12 +644,18 @@
                 boost: 'ブースト',
                 boostOn: 'ブーストON',
                 routeSettingsDisabled: 'ツアー中またはログ記録中は経路設定を変更できません。',
+                searchForPlace: '場所を検索',
+                placeSearchPlaceholder: '地名、住所などを入力',
+                close: '閉じる',
+                search: '検索',
             },
             en: {
                 routeSettings: 'Route Settings',
                 originPlaceholder: 'Origin: e.g., Tokyo Station',
                 destinationPlaceholder: 'Destination: e.g., Shibuya Crossing',
+                destToOrigin: 'Destination to Origin',
                 driving: 'Driving',
+                jumpToPlace: 'Jump to Place',
                 bicycling: 'Bicycling',
                 walking: 'Walking',
                 interpolationInterval: 'Interval (m):',
@@ -659,6 +731,10 @@
                 boost: 'Boost',
                 boostOn: 'Boost ON',
                 routeSettingsDisabled: 'Cannot change route settings during a tour or while logging.',
+                searchForPlace: 'Search for a Place',
+                placeSearchPlaceholder: 'Enter a place name, address, etc.',
+                close: 'Close',
+                search: 'Search',
             }
         };
         let currentLang = 'ja';
@@ -1062,6 +1138,14 @@
         let placesService, infoWindow, selectedPlace = null;
         let originLatLng = null, destinationLatLng = null;
 
+        // 場所検索モーダル用
+        let placeSearchAutocomplete;
+        let selectedJumpPlace = null;
+
+        // 出発地・目的地のオートコンプリート用
+        let originAutocomplete, destinationAutocomplete;
+
+
         const PHYSICS_CONSTANTS = {
             RIDER_MASS: 70, // kg
             BIKE_MASS: 10, // kg
@@ -1105,6 +1189,13 @@
         const travelModeButtons = document.querySelectorAll('.mode-switcher button');
         let fullscreenButton;
         let currentTravelMode = 'BICYCLING';
+
+        const placeSearchModal = document.getElementById('place-search-modal');
+        const jumpToPlaceButton = document.getElementById('jump-to-place-button');
+        const closeModalButton = document.getElementById('close-modal-button');
+        const searchPlaceButton = document.getElementById('search-place-button');
+        const destToOriginButton = document.getElementById('dest-to-origin-button');
+        const placeSearchInput = document.getElementById('place-search-input');
 
         const defaultSettings = {
             'DRIVING': { speed: 40, interval: 5 },
@@ -2163,6 +2254,36 @@
             }
         }
 
+        /**
+         * 指定された場所にマップとストリートビューを移動させます。
+         * @param {google.maps.places.PlaceResult} place - 移動先の場所情報
+         */
+        function jumpToPlace(place) {
+            if (!place || !place.geometry || !place.geometry.location) return;
+
+            const location = place.geometry.location;
+
+            // 既存の経路やマーカーをクリア
+            resetTourState();
+
+            map.setCenter(location);
+            map.setZoom(17);
+            panorama.setPosition(location);
+
+            // ストリートビューの向きを調整（利用可能な場合）
+            streetViewService.getPanorama({ location: location, radius: 50 })
+                .then(({ data }) => {
+                    if (data && data.links && data.links.length > 0) {
+                        // 最も近い道路の方向に向ける
+                        const heading = google.maps.geometry.spherical.computeHeading(location, data.links[0].pano);
+                        panorama.setPov({ heading: heading, pitch: 0, zoom: 1 });
+                    } else {
+                        panorama.setPov({ heading: 0, pitch: 0, zoom: 1 });
+                    }
+                })
+                .catch(e => console.error("Could not set POV for jumped location:", e));
+        }
+
         function initMap() {
             // localStorageからホーム地点を読み込む
             let initialLocation = { lat: 35.681236, lng: 139.767125 }; // デフォルト: 東京駅
@@ -2269,12 +2390,53 @@
                 });
             });
 
+            // 出発地・目的地のオートコンプリート設定
+            const autocompleteOptions = {
+                fields: ["geometry", "name", "formatted_address"],
+                types: ["geocode", "establishment"],
+            };
+            originAutocomplete = new google.maps.places.Autocomplete(originInput, autocompleteOptions);
+            destinationAutocomplete = new google.maps.places.Autocomplete(destinationInput, autocompleteOptions);
+
+            originAutocomplete.addListener('place_changed', () => {
+                originLatLng = originAutocomplete.getPlace()?.geometry?.location || null;
+            });
+            destinationAutocomplete.addListener('place_changed', () => {
+                destinationLatLng = destinationAutocomplete.getPlace()?.geometry?.location || null;
+            });
+            // 場所検索モーダルのオートコンプリート設定
+            placeSearchAutocomplete = new google.maps.places.Autocomplete(placeSearchInput, {
+                fields: ["geometry", "name"],
+                types: ["geocode", "establishment"],
+            });
+            placeSearchAutocomplete.addListener('place_changed', () => {
+                selectedJumpPlace = placeSearchAutocomplete.getPlace();
+            });
+
+            // 場所検索モーダルのイベントリスナー
+            jumpToPlaceButton.addEventListener('click', () => {
+                placeSearchModal.style.display = 'flex';
+                placeSearchInput.focus();
+            });
+            closeModalButton.addEventListener('click', () => placeSearchModal.style.display = 'none');
+            searchPlaceButton.addEventListener('click', () => {
+                if (selectedJumpPlace) jumpToPlace(selectedJumpPlace);
+                placeSearchModal.style.display = 'none';
+            });
+
             const elevationChartCanvas = document.getElementById('elevation-chart');
             elevationChartCanvas.addEventListener('click', handleChartClick);
 
             routeButton.addEventListener('click', calculateAndDisplayRoute);
             toggleTourButton.addEventListener('click', toggleTour);
             bleConnectButton.addEventListener('click', connectToBleDevice);
+            destToOriginButton.addEventListener('click', () => {
+                originInput.value = destinationInput.value;
+                destinationInput.value = '';
+                originLatLng = destinationLatLng;
+                destinationLatLng = null;
+                destinationInput.focus();
+            });
             boostButton.addEventListener('click', () => { /* イベントリスナーは既に設定済み */ });
             logToggleButton.addEventListener('click', toggleLogging);
             hrConnectButton.addEventListener('click', connectToHrDevice);
