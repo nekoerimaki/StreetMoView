@@ -1308,7 +1308,9 @@
                 });
 
                 // 標高の異常なスパイクを除去するためにメディアンフィルタを適用
-                sampledPointsData = applyMedianFilter(sampledPointsData, 3);
+                // ウィンドウサイズを広げ、2回適用することでより強力にスパイクを除去する
+                sampledPointsData = applyMedianFilter(sampledPointsData, 5);
+                sampledPointsData = applyMedianFilter(sampledPointsData, 5);
 
                 // 3. 元の経路の各点の標高を計算する
                 routeElevations = new Array(path.length);
