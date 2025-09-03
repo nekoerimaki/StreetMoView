@@ -283,6 +283,25 @@
             background-color: #2980b9;
         }
 
+        #boost-button {
+            display: none; /* Initially hidden */
+            background-color: transparent;
+            border: 1px solid #bdc3c7;
+            color: #bdc3c7;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border-radius: 50%;
+            box-shadow: none;
+            transform: none;
+            transition: color 0.2s, background-color 0.2s, border-color 0.2s;
+        }
+        #boost-button.active {
+            background-color: #f1c40f;
+            color: white;
+            border-color: #f1c40f;
+        }
+
 
         /* Responsive design for mobile */
         @media (max-width: 767px) {
@@ -393,6 +412,11 @@
                     <button id="toggle-tour-button" disabled data-i18n="startTour">ツアー開始</button>
                     <button id="ble-connect-button" data-i18n="connectPower">パワーソースに接続</button>
                     <button id="hr-connect-button" data-i18n="connectHr">心拍計に接続</button>
+                    <button id="boost-button" title="ブースト">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M5.52.359A.5.5 0 0 1 6 0h4a.5.5 0 0 1 .474.658L8.694 6H12.5a.5.5 0 0 1 .395.807l-7 9a.5.5 0 0 1-.873-.454L6.823 9.5H3.5a.5.5 0 0 1-.48-.641l2.5-8.5z"/>
+                        </svg>
+                    </button>
                     <button id="log-toggle-button" data-i18n="startLog">ログ開始</button>
                     <div class="dropdown-container">
                         <button id="direction-settings-button" data-i18n="directionSettings">表示方向</button>
@@ -549,6 +573,8 @@
                 setAsDestination: '目的地に設定',
                 setAsHome: 'ホームに設定',
                 homeSet: 'ホーム地点を設定しました。次回起動時にこの場所から開始します。',
+                boost: 'ブースト',
+                boostOn: 'ブーストON',
             },
             en: {
                 routeSettings: 'Route Settings',
@@ -627,6 +653,8 @@
                 setAsDestination: 'Set as Destination',
                 setAsHome: 'Set as Home',
                 homeSet: 'Home location set. The app will start here next time.',
+                boost: 'Boost',
+                boostOn: 'Boost ON',
             }
         };
         let currentLang = 'ja';
@@ -1013,6 +1041,8 @@
         let currentPower = 0;
         let currentCadence = 0;
         let currentHeartRate = 0;
+        let isBoostActive = false;
+        const BOOST_FACTOR = 1.5;
         let currentSpeedMps = 0; // 現在の速度 (m/s)
 
         let placesService, infoWindow, selectedPlace = null;
@@ -1050,6 +1080,7 @@
         const bleConnectButton = document.getElementById('ble-connect-button');
         const hrConnectButton = document.getElementById('hr-connect-button');
         const logToggleButton = document.getElementById('log-toggle-button');
+        const boostButton = document.getElementById('boost-button');
         const originInput = document.getElementById('origin-input');
         const destinationInput = document.getElementById('destination-input');
         const intervalInput = document.getElementById('interval-input');
@@ -1197,6 +1228,11 @@
             });
         });
 
+        boostButton.addEventListener('click', () => {
+            isBoostActive = !isBoostActive;
+            boostButton.classList.toggle('active', isBoostActive);
+            boostButton.title = isBoostActive ? uiStrings[currentLang].boostOn : uiStrings[currentLang].boost;
+        });
         /**
          * マップ上のすべてのマーカーをクリアします。
          */
@@ -1600,7 +1636,8 @@
                 // 2. 推進力の計算
                 // 速度が非常に遅い場合の発散を防ぐ
                 const effectiveSpeed = Math.max(currentSpeedMps, C.MIN_SPEED_FOR_FORCE_CALC_MPS);
-                const propulsiveForce = (currentPower * C.DRIVETRAIN_EFFICIENCY) / effectiveSpeed;
+                const boostedPower = isBoostActive ? currentPower * BOOST_FACTOR : currentPower;
+                const propulsiveForce = (boostedPower * C.DRIVETRAIN_EFFICIENCY) / effectiveSpeed;
 
                 // 3. 加速度と新しい速度の計算
                 const netForce = propulsiveForce - totalResistanceForce;
@@ -1851,6 +1888,8 @@
                 bleConnectButton.textContent = uiStrings[currentLang].disconnect;
                 bleConnectButton.style.backgroundColor = '#e74c3c';
                 speedInput.readOnly = true; // 速度入力を読み取り専用に
+                boostButton.style.display = 'flex'; // ブーストボタンを表示
+                boostButton.title = uiStrings[currentLang].boost;
 
             } catch (error) {
                 console.error(`${uiStrings[currentLang].btConnectionFailed}`, error);
@@ -1875,6 +1914,9 @@
             bleConnectButton.style.backgroundColor = '#3498db';
             speedInput.readOnly = false; // 速度入力を編集可能に戻す
             speedInput.value = 0;
+            boostButton.style.display = 'none'; // ブーストボタンを非表示
+            isBoostActive = false;
+            boostButton.classList.remove('active');
             document.getElementById('power-display').textContent = '0 W';
             document.getElementById('cadence-display').textContent = '0 rpm';
             await stopTour(); // 切断時にツアーを停止
@@ -2215,6 +2257,7 @@
             routeButton.addEventListener('click', calculateAndDisplayRoute);
             toggleTourButton.addEventListener('click', toggleTour);
             bleConnectButton.addEventListener('click', connectToBleDevice);
+            boostButton.addEventListener('click', () => { /* イベントリスナーは既に設定済み */ });
             logToggleButton.addEventListener('click', toggleLogging);
             hrConnectButton.addEventListener('click', connectToHrDevice);
 
