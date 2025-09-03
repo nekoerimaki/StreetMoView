@@ -577,6 +577,7 @@
                 homeSet: 'ホーム地点を設定しました。次回起動時にこの場所から開始します。',
                 boost: 'ブースト',
                 boostOn: 'ブーストON',
+                routeSettingsDisabled: 'ツアー中またはログ記録中は経路設定を変更できません。',
             },
             en: {
                 routeSettings: 'Route Settings',
@@ -657,6 +658,7 @@
                 homeSet: 'Home location set. The app will start here next time.',
                 boost: 'Boost',
                 boostOn: 'Boost ON',
+                routeSettingsDisabled: 'Cannot change route settings during a tour or while logging.',
             }
         };
         let currentLang = 'ja';
@@ -1003,6 +1005,16 @@
                     currentGradient = 0; // サンプリングデータが不十分な場合
                 }
                 document.getElementById('gradient').textContent = `${currentGradient.toFixed(1)} %`;
+
+                // 勾配の値に応じて色を変更
+                const gradientValueEl = document.getElementById('gradient');
+                if (currentGradient >= 10) {
+                    gradientValueEl.style.color = '#e74c3c'; // 赤
+                } else if (currentGradient >= 5) {
+                    gradientValueEl.style.color = '#f1c40f'; // 黄
+                } else {
+                    gradientValueEl.style.color = ''; // デフォルトに戻す
+                }
             } else {
                  document.getElementById('elevation').textContent = `N/A`;
                  document.getElementById('gradient').textContent = `N/A`;
@@ -1177,6 +1189,10 @@
 
         // ドロップダウンの表示/非表示を切り替える
         routeSettingsButton.addEventListener('click', (event) => {
+            if (isTourRunning || isLogging) {
+                showMessage(uiStrings[currentLang].routeSettingsDisabled, true);
+                return;
+            }
             event.stopPropagation();
             routeSettingsDropdown.classList.toggle('show');
         });
