@@ -653,6 +653,29 @@
         }
 
         /**
+         * グラフの横軸に最適な目盛り間隔を計算します。
+         * @param {number} totalDistance - 経路の総距離 (m)
+         * @returns {number} - 目盛り間隔 (m)
+         */
+        function getNiceTickInterval(totalDistance) {
+            if (totalDistance <= 0) return 500; // デフォルト値
+
+            const targetTicks = 8; // 目指す目盛りの数
+            const rawInterval = totalDistance / targetTicks;
+            const power = Math.pow(10, Math.floor(Math.log10(rawInterval)));
+            const normalizedInterval = rawInterval / power;
+
+            if (normalizedInterval < 1.5) {
+                return Math.max(1 * power, 10);
+            } else if (normalizedInterval < 3) {
+                return Math.max(2 * power, 10);
+            } else if (normalizedInterval < 7) {
+                return Math.max(5 * power, 10);
+            }
+            return Math.max(10 * power, 10);
+        }
+
+        /**
          * 経路全体の標高グラフを描画します。
          * @param {number} currentDistance - 現在の移動距離 (m)
          */
@@ -757,14 +780,15 @@
             ctx.textAlign = 'center';
             ctx.fillStyle = '#bdc3c7';
 
-            const tickInterval = 500; // 500mごと
+            const tickInterval = getNiceTickInterval(totalDistance);
             for (let dist = tickInterval; dist < totalDistance; dist += tickInterval) {
                 const x = getX(dist);
                 ctx.moveTo(x, height - padding.bottom);
                 ctx.lineTo(x, height - padding.bottom + 4); // 4pxの短い線
 
                 const distKm = (dist / 1000);
-                const label = distKm % 1 === 0 ? distKm.toFixed(0) : distKm.toFixed(1);
+                const precision = Math.max(0, -Math.floor(Math.log10(tickInterval / 1000)));
+                const label = distKm.toFixed(precision);
                 ctx.fillText(label, x, height - padding.bottom + 15);
             }
             ctx.stroke();
