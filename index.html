@@ -1004,7 +1004,7 @@
             G: 9.81,    // 重力加速度 (m/s^2)
             DRIVETRAIN_EFFICIENCY: 0.95, // 駆動系の効率
             MIN_SPEED_FOR_FORCE_CALC_MPS: 1.0, // 推進力計算時の最低速度 (m/s)
-            STOPPING_SPEED_KMH: 0.5 // ツアーが自動停止する速度 (km/h)
+            STOPPING_SPEED_KMH: 3 // ツアーが自動停止する速度 (km/h)
         };
 
         let bleDevice = null;
@@ -1239,8 +1239,10 @@
 
             try {
                 // 1. 経路長に応じてサンプリング距離を動的に決定する
-                const minSamplingDistance = 25; // 最小サンプリング距離 (m)
-                const samplingDistance = (totalDistance >= 1000) ? (totalDistance * 0.025) : minSamplingDistance;
+                const minSamplingDistance = 25;  // 最小サンプリング距離 (m)
+                const maxSamplingDistance = 100; // 最大サンプリング距離 (m)
+                let samplingDistance = (totalDistance >= 1000) ? (totalDistance * 0.025) : minSamplingDistance;
+                samplingDistance = Math.min(samplingDistance, maxSamplingDistance);
 
                 sampledPointsData = [{ point: path[0], distance: 0 }];
                 let distanceSinceLastSample = 0;
