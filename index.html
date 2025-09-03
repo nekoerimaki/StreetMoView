@@ -539,7 +539,7 @@
                 logStarted: 'ログ記録を開始しました。',
                 logStopped: 'ログ記録を終了しました。',
                 confirmSaveTcx: '記録したアクティビティをTCXファイルとして保存しますか？',
-                powerZeroStop: 'パワーが0Wになりました。ツアーを停止します。',
+                powerZeroStop: '速度が低下したためツアーを停止しました。',
                 powerDetectedStart: 'パワーを検出。ツアーを開始します。',
                 jumpDisabledDuringTour: 'ツアー中はジャンプできません。',
                 fullscreen: 'フルスクリーン',
@@ -617,7 +617,7 @@
                 logStarted: 'Log recording started.',
                 logStopped: 'Log recording stopped.',
                 confirmSaveTcx: 'Do you want to save the recorded activity as a TCX file?',
-                powerZeroStop: 'Power is 0W. Stopping the tour.',
+                powerZeroStop: 'Tour stopped due to low speed.',
                 powerDetectedStart: 'Power detected. Starting the tour.',
                 jumpDisabledDuringTour: 'Cannot jump during an active tour.',
                 fullscreen: 'Fullscreen',
@@ -893,7 +893,7 @@
          * @returns {string} - フォーマットされた時間文字列
          */
         function formatTime(seconds) {
-            const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+            const h = Math.floor(Math.abs(seconds) / 3600).toString().padStart(2, '0');
             const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
             const s = Math.floor(seconds % 60).toString().padStart(2, '0');
             return `${h}:${m}:${s}`;
@@ -907,8 +907,7 @@
             const distanceTraveledKm = (distanceTraveled / 1000).toFixed(2);
             const timeElapsed = totalTimeElapsed + (tourStartTime > 0 ? (Date.now() - tourStartTime) / 1000 : 0);
 
-            const remainingDistance = Math.max(0, totalDistance - distanceTraveled);
-            const speedKmH = parseFloat(document.getElementById('speed-input').value);
+            const remainingDistance = Math.max(0, totalDistance - distanceTraveled);            const speedKmH = currentSpeedMps * 3.6;
             let timeRemaining = 0;
             if (speedKmH > 0) {
                 timeRemaining = (remainingDistance / 1000) / speedKmH * 3600;
@@ -990,12 +989,23 @@
         let currentPower = 0;
         let currentCadence = 0;
         let currentHeartRate = 0;
-        let speedBuffer = [];
-        const SPEED_BUFFER_SIZE = 10; // 速度の平均化に使うサンプル数。大きいほど滑らかになるが反応は遅くなる
+        let currentSpeedMps = 0; // 現在の速度 (m/s)
 
         let placesService, infoWindow, selectedPlace = null;
         let originLatLng = null, destinationLatLng = null;
 
+        const PHYSICS_CONSTANTS = {
+            RIDER_MASS: 70, // kg
+            BIKE_MASS: 10, // kg
+            get TOTAL_MASS() { return this.RIDER_MASS + this.BIKE_MASS; },
+            CRR: 0.005, // 転がり抵抗係数 (asphalt)
+            CDA: 0.3,   // 空気抵抗係数 * 前面投影面積 (m^2)
+            RHO: 1.225, // 空気密度 (kg/m^3)
+            G: 9.81,    // 重力加速度 (m/s^2)
+            DRIVETRAIN_EFFICIENCY: 0.95, // 駆動系の効率
+            MIN_SPEED_FOR_FORCE_CALC_MPS: 1.0, // 推進力計算時の最低速度 (m/s)
+            STOPPING_SPEED_KMH: 0.5 // ツアーが自動停止する速度 (km/h)
+        };
 
         let bleDevice = null;
         let ftmsCharacteristic = null;
@@ -1006,13 +1016,6 @@
 
         const HR_SERVICE_UUID = 'heart_rate';
         const HR_MEASUREMENT_UUID = 'heart_rate_measurement';
-
-        // 速度計算用の定数（適宜調整可能）
-        const BASE_RESISTANCE = 15; // 平地での基本抵抗値
-        const GRADIENT_FACTOR = 0.5; // 勾配による抵抗値の増加率
-        const SCALING_FACTOR = 3;   // パワーから速度への換算係数
-        const MAX_SPEED_KMH = 60;
-        const MIN_SPEED_KMH = 1;
 
         const routeSettingsButton = document.getElementById('route-settings-button');
         const routeSettingsDropdown = document.getElementById('route-settings-dropdown');
@@ -1549,23 +1552,58 @@
         }
 
         function updatePhysics() {
-            if (!isTourRunning) return;
+            if (!isTourRunning) return; 
 
             const now = Date.now();
             const deltaTime = (now - lastPhysicsUpdateTime) / 1000; // 秒単位
             lastPhysicsUpdateTime = now;
 
-            const speedKmh = parseFloat(speedInput.value) || 0;
-            const speedMps = speedKmh * 1000 / 3600;
+            // パワーソースが接続されている場合は物理モデルに基づいて速度を更新
+            if (bleDevice && bleDevice.gatt.connected) {
+                const C = PHYSICS_CONSTANTS;
 
-            const deltaDistance = speedMps * deltaTime;
+                // 1. 抵抗力の計算
+                const gradientAngle = Math.atan(currentGradient / 100);
+                const rollingResistanceForce = C.CRR * C.TOTAL_MASS * C.G * Math.cos(gradientAngle);
+                const airResistanceForce = 0.5 * C.CDA * C.RHO * Math.pow(currentSpeedMps, 2);
+                const gradientResistanceForce = C.TOTAL_MASS * C.G * Math.sin(gradientAngle);
+                const totalResistanceForce = rollingResistanceForce + airResistanceForce + gradientResistanceForce;
+
+                // 2. 推進力の計算
+                // 速度が非常に遅い場合の発散を防ぐ
+                const effectiveSpeed = Math.max(currentSpeedMps, C.MIN_SPEED_FOR_FORCE_CALC_MPS);
+                const propulsiveForce = (currentPower * C.DRIVETRAIN_EFFICIENCY) / effectiveSpeed;
+
+                // 3. 加速度と新しい速度の計算
+                const netForce = propulsiveForce - totalResistanceForce;
+                const acceleration = netForce / C.TOTAL_MASS;
+                currentSpeedMps += acceleration * deltaTime;
+                currentSpeedMps = Math.max(0, currentSpeedMps); // 速度が負にならないように
+
+                // UIの速度表示を更新
+                speedInput.value = (currentSpeedMps * 3.6).toFixed(1);
+
+                // ツアー停止条件のチェック
+                if (currentSpeedMps * 3.6 < C.STOPPING_SPEED_KMH && currentPower <= 0) {
+                    stopTour();
+                    showMessage(uiStrings[currentLang].powerZeroStop, false); // エラーではなく情報として表示
+                    return;
+                }
+
+            } else {
+                // パワーソースが接続されていない場合は、手動入力された速度を使用
+                const speedKmh = parseFloat(speedInput.value) || 0;
+                currentSpeedMps = speedKmh / 3.6;
+            }
+
+            const deltaDistance = currentSpeedMps * deltaTime;
             distanceTraveled += deltaDistance;
             distanceSinceLastSvUpdate += deltaDistance;
 
             if (distanceTraveled >= totalDistance) {
                 distanceTraveled = totalDistance;
                 currentPointIndex = routePoints.length - 1;
-                if(currentLocationMarker && routePoints.length > 0) {
+                if (currentLocationMarker && routePoints.length > 0) {
                     currentLocationMarker.setPosition(routePoints[currentPointIndex]);
                 }
                 updateInfoDisplay();
@@ -1600,7 +1638,7 @@
                     cadence: currentCadence,
                     heartRate: currentHeartRate,
                     distance: distanceTraveled,
-                    speed: speedKmh
+                    speed: currentSpeedMps * 3.6 // km/hで記録
                 });
             }
         }
@@ -1712,21 +1750,20 @@
                 return;
             }
 
-            const speed = parseFloat(speedInput.value);
-            const interval = parseFloat(intervalInput.value);
-
-            if (isNaN(speed) || speed <= 0) {
-                 showMessage(uiStrings[currentLang].invalidSpeed, true);
-                 return;
-            }
-            if (isNaN(interval) || interval <= 0) {
-                showMessage(uiStrings[currentLang].invalidInterval);
-                return;
+            // パワーソースが接続されていない場合のみ、手動速度をチェック
+            if (!(bleDevice && bleDevice.gatt.connected)) {
+                const speed = parseFloat(speedInput.value);
+                if (isNaN(speed) || speed <= 0) {
+                    showMessage(uiStrings[currentLang].invalidSpeed, true);
+                    return;
+                }
+                currentSpeedMps = speed / 3.6;
+            } else {
+                currentSpeedMps = 0; // パワーソース接続時は0からスタート
             }
 
             // 画面のスリープを防止
             await requestWakeLock();
-
             isTourRunning = true;
             toggleTourButton.textContent = uiStrings[currentLang].stopTour;
             tourStartTime = Date.now();
@@ -1744,6 +1781,7 @@
                 physicsIntervalId = null;
             }
             isTourRunning = false;
+            currentSpeedMps = 0;
 
             // 画面のスリープ防止を解除
             await releaseWakeLock();
@@ -1784,6 +1822,7 @@
                 showMessage(uiStrings[currentLang].ftmsConnected, false);
                 bleConnectButton.textContent = uiStrings[currentLang].disconnect;
                 bleConnectButton.style.backgroundColor = '#e74c3c';
+                speedInput.readOnly = true; // 速度入力を読み取り専用に
 
             } catch (error) {
                 console.error(`${uiStrings[currentLang].btConnectionFailed}`, error);
@@ -1804,9 +1843,10 @@
                 ftmsCharacteristic.removeEventListener('characteristicvaluechanged', handleFTMSData);
                 ftmsCharacteristic = null;
             }
-            speedBuffer = []; // 速度バッファをリセット
             bleConnectButton.textContent = uiStrings[currentLang].connectPower;
             bleConnectButton.style.backgroundColor = '#3498db';
+            speedInput.readOnly = false; // 速度入力を編集可能に戻す
+            speedInput.value = 0;
             document.getElementById('power-display').textContent = '0 W';
             document.getElementById('cadence-display').textContent = '0 rpm';
             await stopTour(); // 切断時にツアーを停止
@@ -2023,44 +2063,11 @@
                 currentPower = power;
                 document.getElementById('power-display').textContent = `${currentPower} W`;
 
-                // 動的な速度計算とツアー制御
-                //if (isTourRunning) {
-                        // 勾配とパワーを基に速度を計算
-                        let resistance = BASE_RESISTANCE + (GRADIENT_FACTOR * currentGradient);
-                        
-                        // 抵抗が極端に小さくならないように下限値を設定し、速度の急なスパイクを防ぐ
-                        const minResistance = 5; // 最小抵抗値（この値を大きくすると下り坂での速度が上がりにくくなる）
-                        if (resistance < minResistance) {
-                            resistance = minResistance;
-                        }
-                        let newSpeed = (power / resistance) * SCALING_FACTOR;
-                        newSpeed = Math.max(MIN_SPEED_KMH, Math.min(newSpeed, MAX_SPEED_KMH));
-                        
-                        // --- 速度のスムージング処理 ---
-                        // 計算された生の速度をバッファに追加
-                        speedBuffer.push(newSpeed);
-                        if (speedBuffer.length > SPEED_BUFFER_SIZE) {
-                            speedBuffer.shift(); // 古いデータを削除
-                        }
-                        // バッファ内の速度の平均値を計算して滑らかにする
-                        const smoothedSpeed = speedBuffer.reduce((a, b) => a + b, 0) / speedBuffer.length;
-                        currentTourSpeedKmH = smoothedSpeed; // スムージングされた速度をグローバル変数に保存
-                        
-                        // 速度入力フィールドを更新し、巡回インターバルを再設定
-                        speedInput.value = currentTourSpeedKmH.toFixed(1);
-                        // ツアーループ内で速度が参照されるため、ここでのタイマー更新は不要
-                    if (isTourRunning) {
-                        if (power <= 0) {
-                            stopTour();
-                            showMessage(uiStrings[currentLang].powerZeroStop, true);
-                        }
-                    } else {
-                        if (power > 0) {
-                            startTour();
-                            showMessage(uiStrings[currentLang].powerDetectedStart, true);
-                        }
-                    }
-                //}
+                // ツアーが実行中でなく、パワーが検出されたらツアーを開始
+                if (!isTourRunning && power > 0) {
+                    startTour();
+                    showMessage(uiStrings[currentLang].powerDetectedStart, false);
+                }
                 offset += 2;
             }
             if (flags & 0x80) {
