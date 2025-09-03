@@ -376,12 +376,12 @@
                         <input type="text" id="origin-input" placeholder="出発地: 例. 東京駅" data-i18n-placeholder="originPlaceholder">
                         <input type="text" id="destination-input" placeholder="目的地: 例. 渋谷スクランブル交差点" data-i18n-placeholder="destinationPlaceholder">
                         <div class="mode-switcher">
-                            <button id="driving-mode-btn" data-mode="DRIVING" class="active" data-i18n="driving">自動車</button>
-                            <button id="bicycling-mode-btn" data-mode="BICYCLING" data-i18n="bicycling">自転車</button>
+                            <button id="driving-mode-btn" data-mode="DRIVING" data-i18n="driving">自動車</button>
+                            <button id="bicycling-mode-btn" data-mode="BICYCLING" class="active" data-i18n="bicycling">自転車</button>
                             <button id="walking-mode-btn" data-mode="WALKING" data-i18n="walking">徒歩</button>
                         </div>
                         <label for="interval-input" data-i18n="interpolationInterval">補間間隔 (m):</label>
-                        <input type="number" id="interval-input" value="5" min="1" max="100">
+                        <input type="number" id="interval-input" value="3" min="1" max="100">
                         <button id="route-button" data-i18n="searchRoute">経路を検索</button>
                         <button id="load-gpx-button" data-i18n="loadGpx">GPXを読み込む</button>
                     </div>
@@ -1059,7 +1059,7 @@
         const speedInput = document.getElementById('speed-input');
         const travelModeButtons = document.querySelectorAll('.mode-switcher button');
         let fullscreenButton;
-        let currentTravelMode = 'DRIVING';
+        let currentTravelMode = 'BICYCLING';
 
         const defaultSettings = {
             'DRIVING': { speed: 40, interval: 5 },
@@ -1264,7 +1264,7 @@
             try {
                 // 1. 経路長に応じてサンプリング距離を動的に決定する
                 const minSamplingDistance = 25;  // 最小サンプリング距離 (m)
-                const maxSamplingDistance = 100; // 最大サンプリング距離 (m)
+                const maxSamplingDistance = 150; // 最大サンプリング距離 (m)
                 let samplingDistance = (totalDistance >= 1000) ? (totalDistance * 0.025) : minSamplingDistance;
                 samplingDistance = Math.min(samplingDistance, maxSamplingDistance);
 
