@@ -268,6 +268,22 @@
             transform: none;
         }
 
+        .infowindow-btn {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            color: white;
+            background-color: #3498db;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: none;
+            transform: none;
+        }
+        .infowow-btn:hover {
+            background-color: #2980b9;
+        }
+
+
         /* Responsive design for mobile */
         @media (max-width: 767px) {
             .controls-area {
@@ -529,6 +545,10 @@
                 fullscreen: 'フルスクリーン',
                 exitFullscreen: 'フルスクリーン解除',
                 fullscreenError: 'フルスクリーンモードへの移行に失敗しました: ',
+                setAsOrigin: '出発地に設定',
+                setAsDestination: '目的地に設定',
+                setAsHome: 'ホームに設定',
+                homeSet: 'ホーム地点を設定しました。次回起動時にこの場所から開始します。',
             },
             en: {
                 routeSettings: 'Route Settings',
@@ -603,6 +623,10 @@
                 fullscreen: 'Fullscreen',
                 exitFullscreen: 'Exit Fullscreen',
                 fullscreenError: 'Error attempting to enable full-screen mode: ',
+                setAsOrigin: 'Set as Origin',
+                setAsDestination: 'Set as Destination',
+                setAsHome: 'Set as Home',
+                homeSet: 'Home location set. The app will start here next time.',
             }
         };
         let currentLang = 'ja';
@@ -968,6 +992,9 @@
         let currentHeartRate = 0;
         let speedBuffer = [];
         const SPEED_BUFFER_SIZE = 10; // 速度の平均化に使うサンプル数。大きいほど滑らかになるが反応は遅くなる
+
+        let placesService, infoWindow, selectedPlace = null;
+        let originLatLng = null, destinationLatLng = null;
 
 
         let bleDevice = null;
@@ -1368,11 +1395,11 @@
         function calculateAndDisplayRoute() {
             resetTourState();
 
-            const origin = originInput.value;
-            const destination = destinationInput.value;
+            const originValue = originInput.value;
+            const destinationValue = destinationInput.value;
             const interpolationInterval = parseFloat(intervalInput.value);
 
-            if (!origin || !destination) {
+            if (!originValue || !destinationValue) {
                 showMessage(uiStrings[currentLang].originDestRequired);
                 return;
             }
@@ -1380,6 +1407,9 @@
                 showMessage(uiStrings[currentLang].invalidInterval);
                 return;
             }
+
+            const origin = originLatLng || originValue;
+            const destination = destinationLatLng || destinationValue;
 
             directionsService.route({
                 origin: origin,
@@ -2039,7 +2069,22 @@
         }
 
         function initMap() {
-            const initialLocation = { lat: 35.681236, lng: 139.767125 };
+            // localStorageからホーム地点を読み込む
+            let initialLocation = { lat: 35.681236, lng: 139.767125 }; // デフォルト: 東京駅
+            const savedHome = localStorage.getItem('streetMoViewHomeLocation');
+            if (savedHome) {
+                try {
+                    const homeCoords = JSON.parse(savedHome);
+                    // 緯度と経度が数値であることを確認
+                    if (homeCoords && typeof homeCoords.lat === 'number' && typeof homeCoords.lng === 'number') {
+                        initialLocation = homeCoords;
+                    }
+                } catch (e) {
+                    console.error("Failed to parse home location from localStorage", e);
+                    // パースに失敗した場合は古いデータを削除
+                    localStorage.removeItem('streetMoViewHomeLocation');
+                }
+            }
 
             map = new google.maps.Map(document.getElementById('map'), {
                 center: initialLocation,
@@ -2059,6 +2104,75 @@
             directionsRenderer = new google.maps.DirectionsRenderer({ map: map, suppressMarkers: true });
             elevationService = new google.maps.ElevationService();
             streetViewService = new google.maps.StreetViewService();
+
+            // POIクリックで情報ウィンドウを表示し、出発地/目的地に設定する機能
+            placesService = new google.maps.places.PlacesService(map);
+            infoWindow = new google.maps.InfoWindow({
+                // InfoWindow内のコンテンツがはみ出ないように最大幅を設定
+                maxWidth: 350
+            });
+
+            map.addListener('click', (e) => {
+                // クリックした場所に既にInfoWindowが開いていたら閉じる
+                infoWindow.close();
+                selectedPlace = null;
+
+                if (e.placeId) {
+                    e.stop(); // デフォルトのPOI情報ウィンドウの表示を停止
+
+                    placesService.getDetails({ placeId: e.placeId }, (place, status) => {
+                        if (status === google.maps.places.PlacesServiceStatus.OK && place && place.geometry && place.geometry.location) {
+                            selectedPlace = place; // クリックされた場所の情報を保持
+
+                            // InfoWindowに表示するHTMLコンテンツを生成
+                            const content = `
+                                <div style="color: #333; font-family: 'Inter', sans-serif; line-height: 1.5;">
+                                    <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">${place.name}</div>
+                                    ${place.formatted_address ? `<div style="font-size: 13px; color: #555; margin-bottom: 12px;">${place.formatted_address}</div>` : ''}
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                        <button class="infowindow-btn" id="set-origin-btn">${uiStrings[currentLang].setAsOrigin}</button>
+                                        <button class="infowindow-btn" id="set-dest-btn">${uiStrings[currentLang].setAsDestination}</button>
+                                        <button class="infowindow-btn" id="set-home-btn" style="background-color: #27ae60;">${uiStrings[currentLang].setAsHome}</button>
+                                    </div>
+                                </div>
+                            `;
+                            infoWindow.setContent(content);
+                            infoWindow.setPosition(e.latLng);
+                            infoWindow.open(map);
+                        }
+                    });
+                }
+            });
+
+            // InfoWindow内のボタンにイベントリスナーを設定
+            infoWindow.addListener('domready', () => {
+                document.getElementById('set-origin-btn')?.addEventListener('click', () => {
+                    if (selectedPlace) {
+                        originInput.value = selectedPlace.name || selectedPlace.formatted_address;
+                        originLatLng = selectedPlace.geometry.location;
+                        infoWindow.close();
+                    }
+                });
+                document.getElementById('set-dest-btn')?.addEventListener('click', () => {
+                    if (selectedPlace) {
+                        destinationInput.value = selectedPlace.name || selectedPlace.formatted_address;
+                        destinationLatLng = selectedPlace.geometry.location;
+                        infoWindow.close();
+                    }
+                });
+                document.getElementById('set-home-btn')?.addEventListener('click', () => {
+                    if (selectedPlace && selectedPlace.geometry && selectedPlace.geometry.location) {
+                        const homeLocation = {
+                            lat: selectedPlace.geometry.location.lat(),
+                            lng: selectedPlace.geometry.location.lng()
+                        };
+                        // ホーム地点をlocalStorageに保存
+                        localStorage.setItem('streetMoViewHomeLocation', JSON.stringify(homeLocation));
+                        showMessage(uiStrings[currentLang].homeSet, false);
+                        infoWindow.close();
+                    }
+                });
+            });
 
             const elevationChartCanvas = document.getElementById('elevation-chart');
             elevationChartCanvas.addEventListener('click', handleChartClick);
@@ -2096,6 +2210,14 @@
                         calculateAndDisplayRoute();
                     }
                 });
+            });
+
+            // ユーザーが手動で入力した場合、保存されたLatLngをクリアする
+            originInput.addEventListener('input', () => {
+                originLatLng = null;
+            });
+            destinationInput.addEventListener('input', () => {
+                destinationLatLng = null;
             });
 
             const splitter = document.getElementById('splitter');
