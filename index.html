@@ -490,8 +490,8 @@
                     <button data-lang="en" class="lang-btn">English</button>
                 </div>
                 <button id="fullscreen-button" title="フルスクリーン">
-                    <svg class="icon-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="28" height="28">
-                        <path d="M1.5 1a.5.5 0 0 0-.5.5v4a.5.5 0 0 1-1 0v-4A1.5 1.5 0 0 1 1.5 0h4a.5.5 0 0 1 0 1h-4zM10 .5a.5.5 0 0 1 .5-.5h4A1.5 1.5 0 0 1 16 1.5v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 0-.5-.5h-4a.5.5 0 0 1-.5-.5zM.5 10a.5.5 0 0 1 .5.5v4a.5.5 0 0 0 .5.5h4a.5.5 0 0 1 0 1h-4A1.5 1.5 0 0 1 0 14.5v-4a.5.5 0 0 1 .5-.5zm15 0a.5.5 0 0 1 .5.5v4a1.5 1.5 0 0 1-1.5 1.5h-4a.5.5 0 0 1 0-1h4a.5.5 0 0 0 .5-.5v-4a.5.5 0 0 1 .5-.5z"/>
+                    <svg class="icon-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="28" height="28">
+                        <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
                     </svg>
                     <svg class="icon-exit-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="28" height="28" style="display: none;">
                         <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
@@ -1593,13 +1593,14 @@
                 travelMode: google.maps.TravelMode[currentTravelMode],
             }).then((response) => {
                 if (response.status === 'OK') {
-                    const overviewPath = response.routes[0].overview_path;
+                    // overview_pathの代わりに、より詳細なstepsのpathを連結して使用する
+                    const detailedPath = response.routes[0].legs.flatMap(leg => leg.steps.flatMap(step => step.path));
                     directionsRenderer.setDirections(response);
 
                     const interpolatedPath = [];
-                    for (let i = 0; i < overviewPath.length - 1; i++) {
-                        const p1 = overviewPath[i];
-                        const p2 = overviewPath[i + 1];
+                    for (let i = 0; i < detailedPath.length - 1; i++) {
+                        const p1 = detailedPath[i];
+                        const p2 = detailedPath[i + 1];
                         const distance = getDistance(p1, p2);
                         const segments = Math.ceil(distance / interpolationInterval);
                         for (let j = 0; j < segments; j++) {
@@ -1607,7 +1608,7 @@
                             interpolatedPath.push(interpolate(p1, p2, fraction));
                         }
                     }
-                    interpolatedPath.push(overviewPath[overviewPath.length - 1]);
+                    interpolatedPath.push(detailedPath[detailedPath.length - 1]);
 
                     processRoute(interpolatedPath);
                 } else {
