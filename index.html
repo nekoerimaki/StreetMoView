@@ -304,6 +304,26 @@
             border-color: #f1c40f;
         }
 
+        #info-display #boost-button {
+            display: none; /* Initially hidden */
+            background-color: transparent;
+            border: 1px solid #bdc3c7;
+            color: #bdc3c7;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            box-shadow: none;
+            transform: none;
+            align-self: center; /* Vertically center in the flex container */
+            margin: 0 10px;
+        }
+        #info-display #boost-button.active {
+            background-color: #f1c40f;
+            color: white;
+            border-color: #f1c40f;
+        }
+
         /* 場所検索モーダル */
         .modal-overlay {
             position: fixed;
@@ -467,11 +487,6 @@
                     <input type="number" id="speed-input" value="0" min="1" max="60">
                     <button id="toggle-tour-button" disabled data-i18n="startTour">ツアー開始</button>
                     <button id="ble-connect-button" data-i18n="connectPower">パワーソースに接続</button>
-                    <button id="boost-button" title="ブースト" style="display: none;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M5.52.359A.5.5 0 0 1 6 0h4a.5.5 0 0 1 .474.658L8.694 6H12.5a.5.5 0 0 1 .395.807l-7 9a.5.5 0 0 1-.873-.454L6.823 9.5H3.5a.5.5 0 0 1-.48-.641l2.5-8.5z"/>
-                        </svg>
-                    </button>
                     <button id="hr-connect-button" data-i18n="connectHr">心拍計に接続</button>
                     <button id="log-toggle-button" data-i18n="startLog">ログ開始</button>
                     <div class="dropdown-container">
@@ -528,6 +543,11 @@
                 <span class="info-label" data-i18n="power">パワー</span>
                 <span class="info-value" id="power-display">0 W</span>
             </div>
+            <button id="boost-button" title="ブースト">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M5.52.359A.5.5 0 0 1 6 0h4a.5.5 0 0 1 .474.658L8.694 6H12.5a.5.5 0 0 1 .395.807l-7 9a.5.5 0 0 1-.873-.454L6.823 9.5H3.5a.5.5 0 0 1-.48-.641l2.5-8.5z"/>
+                </svg>
+            </button>
             <div class="info-item">
                 <span class="info-label" data-i18n="cadence">ケイデンス</span>
                 <span class="info-value" id="cadence-display">0 rpm</span>
@@ -1998,7 +2018,7 @@
                 bleConnectButton.textContent = uiStrings[currentLang].disconnect;
                 bleConnectButton.style.backgroundColor = '#e74c3c';
                 speedInput.readOnly = true; // 速度入力を読み取り専用に
-                boostButton.style.display = 'flex'; // ブーストボタンを表示
+                boostButton.style.display = 'block'; // ブーストボタンを表示
                 boostButton.title = uiStrings[currentLang].boost;
 
             } catch (error) {
