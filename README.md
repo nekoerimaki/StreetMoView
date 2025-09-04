@@ -1,4 +1,4 @@
-# [StreetMoView](https://nekoerimaki.github.io/StreetMoView/)
+# StreetMoView https://nekoerimaki.github.io/StreetMoView/
 
 ## 機能
 
