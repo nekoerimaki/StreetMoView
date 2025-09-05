@@ -590,7 +590,6 @@
     <div id="message-box"></div>
 
     <script>
-        const GOOGLE_MAPS_API_KEY = 'AIzaSyC7uCB2u3BM1kA2xr-qiyrLTHjOrZfIKdo';
 
         const uiStrings = {
             ja: {
@@ -761,7 +760,9 @@
                 boostOn: 'Boost ON',
                 routeSettingsDisabled: 'Cannot change route settings during a tour or while logging.',
                 searchForPlace: 'Search for a Place',
-                svCoverage: 'SV Coverage'
+                svCoverage: 'SV Coverage',
+                apiKeyRequired: 'Google Maps API Key is required.',
+                enterApiKey: 'A Google Maps API Key is required to use this application.\nPlease enter your API key. It will be stored in your browser and will not be sent externally.'
             }
         };
         let currentLang = 'ja';
@@ -2654,6 +2655,21 @@
             document.head.appendChild(script);
         }
 
+        function disableApiDependentFeatures(disabled) {
+            routeButton.disabled = disabled;
+            loadGpxButton.disabled = disabled;
+            // 他のAPI依存機能があればここに追加
+        }
+
+        let GOOGLE_MAPS_API_KEY = localStorage.getItem('streetMoViewApiKey');
+
+        if (!GOOGLE_MAPS_API_KEY) {
+            GOOGLE_MAPS_API_KEY = prompt(uiStrings[currentLang].enterApiKey);
+            if (GOOGLE_MAPS_API_KEY) {
+                localStorage.setItem('streetMoViewApiKey', GOOGLE_MAPS_API_KEY);
+            }
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             fullscreenButton = document.getElementById('fullscreen-button');
             fullscreenButton.addEventListener('click', toggleFullscreen);
@@ -2662,8 +2678,21 @@
             // 初期速度を設定
             speedInput.value = defaultSettings[currentTravelMode].speed;
 
-            loadMapsScript();
-            setLanguage(currentLang); // 初期言語を設定
+            setLanguage(currentLang); // ★最初に言語を設定
+
+            let GOOGLE_MAPS_API_KEY = localStorage.getItem('streetMoViewApiKey');
+            if (!GOOGLE_MAPS_API_KEY) {
+                GOOGLE_MAPS_API_KEY = prompt(uiStrings[currentLang].enterApiKey);
+                if (GOOGLE_MAPS_API_KEY) {
+                    localStorage.setItem('streetMoViewApiKey', GOOGLE_MAPS_API_KEY);
+                }
+            }
+            
+            if (GOOGLE_MAPS_API_KEY) {
+                loadMapsScript();
+            } else {
+                showMessage(uiStrings[currentLang].apiKeyRequired, true);
+            }
         });
     </script>
 </body>
