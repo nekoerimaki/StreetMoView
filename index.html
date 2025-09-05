@@ -761,8 +761,6 @@
                 routeSettingsDisabled: 'Cannot change route settings during a tour or while logging.',
                 searchForPlace: 'Search for a Place',
                 svCoverage: 'SV Coverage',
-                apiKeyRequired: 'Google Maps API Key is required.',
-                enterApiKey: 'A Google Maps API Key is required to use this application.\nPlease enter your API key. It will be stored in your browser and will not be sent externally.'
             }
         };
         let currentLang = 'ja';
@@ -2663,13 +2661,6 @@
 
         let GOOGLE_MAPS_API_KEY = localStorage.getItem('streetMoViewApiKey');
 
-        if (!GOOGLE_MAPS_API_KEY) {
-            GOOGLE_MAPS_API_KEY = prompt(uiStrings[currentLang].enterApiKey);
-            if (GOOGLE_MAPS_API_KEY) {
-                localStorage.setItem('streetMoViewApiKey', GOOGLE_MAPS_API_KEY);
-            }
-        }
-
         window.addEventListener('DOMContentLoaded', () => {
             fullscreenButton = document.getElementById('fullscreen-button');
             fullscreenButton.addEventListener('click', toggleFullscreen);
@@ -2681,17 +2672,30 @@
             setLanguage(currentLang); // ★最初に言語を設定
 
             let GOOGLE_MAPS_API_KEY = localStorage.getItem('streetMoViewApiKey');
+
             if (!GOOGLE_MAPS_API_KEY) {
-                GOOGLE_MAPS_API_KEY = prompt(uiStrings[currentLang].enterApiKey);
-                if (GOOGLE_MAPS_API_KEY) {
+                const promptMessages = {
+                    ja: 'このアプリケーションを利用するにはGoogle Maps APIキーが必要です。\nAPIキーを入力してください。キーはブラウザに保存され、外部には送信されません。',
+                    en: 'A Google Maps API Key is required to use this application.\nPlease enter your API key. It will be stored in your browser and will not be sent externally.'
+                };
+                GOOGLE_MAPS_API_KEY = prompt(promptMessages[currentLang]);
+                if (GOOGLE_MAPS_API_KEY && GOOGLE_MAPS_API_KEY.trim() !== '') {
                     localStorage.setItem('streetMoViewApiKey', GOOGLE_MAPS_API_KEY);
+                    // キーを保存したらリフレッシュしてAPIスクリプトを読み込ませる
+                    location.reload();
+                    return; // リフレッシュするので以降の処理は不要
+                } else {
+                    // キーが入力されなかった場合はブランクページに移動
+                    window.location.href = 'about:blank';
+                    return;
                 }
             }
-            
+
             if (GOOGLE_MAPS_API_KEY) {
                 loadMapsScript();
             } else {
-                showMessage(uiStrings[currentLang].apiKeyRequired, true);
+                // このケースはlocalStorageにキーがなく、promptもキャンセルされた場合に到達する
+                window.location.href = 'about:blank';
             }
         });
     </script>
