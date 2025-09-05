@@ -60,6 +60,65 @@
             display: flex;
         }
 
+        /* マップ左下のコントロールコンテナ */
+        #map-controls-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 5px 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            margin: 10px;
+        }
+        #map-controls-container label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #333;
+            cursor: pointer;
+        }
+
+        /* トグルスイッチのスタイル */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 34px;
+            height: 20px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 20px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2196F3; /* 青色 */
+        }
+        input:checked + .slider:before {
+            transform: translateX(14px);
+        }
+
         .dropdown-content input[type="text"] {
             padding: 8px;
             font-size: 0.9rem;
@@ -324,51 +383,6 @@
             border-color: #f1c40f;
         }
 
-        /* 場所検索モーダル */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-        }
-        .modal-content {
-            background-color: white;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            width: 90%;
-            max-width: 500px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        .modal-content h3 {
-            margin: 0;
-            color: #2c3e50;
-        }
-        #place-search-input {
-            width: 100%;
-            padding: 10px;
-            font-size: 1rem;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            box-sizing: border-box;
-        }
-        .modal-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-        }
-        .modal-actions button {
-            padding: 8px 20px;
-        }
-
         /* Google Places Autocomplete suggestions z-index fix */
         .pac-container {
             z-index: 2001; /* Must be higher than .modal-overlay's z-index */
@@ -463,8 +477,7 @@
             <div class="control-groups">
                 <div class="dropdown-container">
                     <button id="route-settings-button" data-i18n="routeSettings">経路設定</button>
-                    <div class="dropdown-content" id="route-settings-dropdown">
-                        <button id="jump-to-place-button" data-i18n="jumpToPlace">場所へ移動</button>
+                    <div class="dropdown-content" id="route-settings-dropdown">                        
                         <input type="text" id="origin-input" placeholder="出発地: 例. 東京駅" data-i18n-placeholder="originPlaceholder">
                         <input type="text" id="destination-input" placeholder="目的地: 例. 渋谷スクランブル交差点" data-i18n-placeholder="destinationPlaceholder">
                         <button id="dest-to-origin-button" data-i18n="destToOrigin" style="background-color: #95a5a6; font-size: 0.8rem; padding: 4px 8px; width: auto; box-shadow: none;">目的地を出発地に</button>
@@ -565,15 +578,13 @@
             <div class="splitter" id="splitter"></div>
             <div id="map"></div>
         </div>
-    </div>
-    <div id="place-search-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h3 data-i18n="searchForPlace">場所を検索</h3>
-            <input type="text" id="place-search-input" data-i18n-placeholder="placeSearchPlaceholder">
-            <div class="modal-actions">
-                <button id="close-modal-button" style="background-color: #95a5a6;" data-i18n="close">閉じる</button>
-                <button id="search-place-button" data-i18n="search">検索</button>
-            </div>
+        <!-- マップ左下に配置するコントロール -->
+        <div id="map-controls-container" style="display: none;">
+            <label for="sv-coverage-toggle" data-i18n="svCoverage">SV道路表示</label>
+            <label class="switch">
+                <input type="checkbox" id="sv-coverage-toggle">
+                <span class="slider"></span>
+            </label>
         </div>
     </div>
     <div id="message-box"></div>
@@ -587,8 +598,7 @@
                 originPlaceholder: '出発地: 例. 東京駅',
                 destinationPlaceholder: '目的地: 例. 渋谷スクランブル交差点',
                 destToOrigin: '目的地を出発地に',
-                driving: '自動車',
-                jumpToPlace: '場所へ移動',
+                driving: '自動車',                
                 bicycling: '自転車',
                 walking: '徒歩',
                 interpolationInterval: '補間間隔 (m):',
@@ -663,11 +673,7 @@
                 homeSet: 'ホーム地点を設定しました。次回起動時にこの場所から開始します。',
                 boost: 'ブースト',
                 boostOn: 'ブーストON',
-                routeSettingsDisabled: 'ツアー中またはログ記録中は経路設定を変更できません。',
-                searchForPlace: '場所を検索',
-                placeSearchPlaceholder: '地名、住所などを入力',
-                close: '閉じる',
-                search: '検索',
+                routeSettingsDisabled: 'ツアー中またはログ記録中は経路設定を変更できません。'
             },
             en: {
                 routeSettings: 'Route Settings',
@@ -675,7 +681,6 @@
                 destinationPlaceholder: 'Destination: e.g., Shibuya Crossing',
                 destToOrigin: 'Destination to Origin',
                 driving: 'Driving',
-                jumpToPlace: 'Jump to Place',
                 bicycling: 'Bicycling',
                 walking: 'Walking',
                 interpolationInterval: 'Interval (m):',
@@ -750,11 +755,7 @@
                 homeSet: 'Home location set. The app will start here next time.',
                 boost: 'Boost',
                 boostOn: 'Boost ON',
-                routeSettingsDisabled: 'Cannot change route settings during a tour or while logging.',
-                searchForPlace: 'Search for a Place',
-                placeSearchPlaceholder: 'Enter a place name, address, etc.',
-                close: 'Close',
-                search: 'Search',
+                routeSettingsDisabled: 'Cannot change route settings during a tour or while logging.'
             }
         };
         let currentLang = 'ja';
@@ -1122,7 +1123,7 @@
         }
 
         let map, panorama;
-        let directionsService, directionsRenderer, elevationService, streetViewService;
+        let directionsService, directionsRenderer, elevationService, streetViewService, streetViewCoverageLayer;
         let routePoints = [];
         let routeGradients = [];
         let routeElevations = [];
@@ -1159,9 +1160,6 @@
         let originLatLng = null, destinationLatLng = null;
 
         // 場所検索モーダル用
-        let placeSearchAutocomplete;
-        let selectedJumpPlace = null;
-
         // 出発地・目的地のオートコンプリート用
         let originAutocomplete, destinationAutocomplete;
 
@@ -1207,15 +1205,8 @@
         const directionButtons = document.querySelectorAll('#direction-switcher button');
         const speedInput = document.getElementById('speed-input');
         const travelModeButtons = document.querySelectorAll('.mode-switcher button');
-        let fullscreenButton;
-        let currentTravelMode = 'BICYCLING';
-
-        const placeSearchModal = document.getElementById('place-search-modal');
-        const jumpToPlaceButton = document.getElementById('jump-to-place-button');
-        const closeModalButton = document.getElementById('close-modal-button');
-        const searchPlaceButton = document.getElementById('search-place-button');
+        let fullscreenButton;        let currentTravelMode = 'BICYCLING';
         const destToOriginButton = document.getElementById('dest-to-origin-button');
-        const placeSearchInput = document.getElementById('place-search-input');
 
         const defaultSettings = {
             'DRIVING': { speed: 40, interval: 5 },
@@ -1332,6 +1323,7 @@
                 }
             });
             intervalInput.value = defaultSettings[mode].interval;
+            speedInput.value = defaultSettings[mode].speed;
         }
 
         travelModeButtons.forEach(btn => {
@@ -1391,7 +1383,10 @@
             totalDistance = 0;
             distanceTraveled = 0;
             currentPointIndex = 0;
-            speedInput.value = 0;
+            // パワーソースに接続されていない場合のみ、現在の移動モードのデフォルト速度を再設定
+            if (!bleDevice || !bleDevice.gatt.connected) {
+                speedInput.value = defaultSettings[currentTravelMode].speed;
+            }
             document.getElementById('elevation').textContent = `N/A`;
             document.getElementById('gradient').textContent = `N/A`;
             updateInfoDisplay();
@@ -1537,25 +1532,45 @@
             startMarker = new google.maps.Marker({
                 map: map,
                 position: firstPoint,
-                label: 'A',
                 title: uiStrings[currentLang].startPoint,
+                icon: {
+                    path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, // 三角形
+                    scale: 7,
+                    fillColor: '#2ecc71', // 緑色
+                    fillOpacity: 1,
+                    strokeWeight: 1,
+                    strokeColor: '#ffffff', // 白い縁取り
+                    rotation: 90 // 上向きにする
+                },
+                zIndex: 1000
             });
             endMarker = new google.maps.Marker({
                 map: map,
                 position: lastPoint,
-                label: 'B',
                 title: uiStrings[currentLang].endPoint,
+                icon: {
+                    path: 'M -5,-5 5,-5 5,5 -5,5 Z', // 四角形
+                    scale: 1.5,
+                    fillColor: '#e74c3c', // 赤色
+                    fillOpacity: 1,
+                    strokeWeight: 1,
+                    strokeColor: '#ffffff' // 白い縁取り
+                },
+                zIndex: 1000
             });
             currentLocationMarker = new google.maps.Marker({
                 map: map,
                 title: uiStrings[currentLang].currentLocation,
+                // アイコンとしてSVG画像を直接指定する (データURI形式)
                 icon: {
-                    path: 'M -5,0 5,0 M 0,-5 0,5',
-                    scale: 4,
-                    strokeColor: '#e74c3c',
-                    strokeWeight: 2,
-                    fillColor: '#e74c3c',
-                    fillOpacity: 1,
+                    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 384 512">
+                            <path fill="#2ecc71" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67a24 24 0 0 1-35.464 0z"/>
+                            <circle cx="192" cy="192" r="64" fill="white"/>
+                        </svg>
+                    `)}`,
+                    scaledSize: new google.maps.Size(36, 48), // 表示サイズ
+                    anchor: new google.maps.Point(18, 48)     // ピンの先端の位置
                 },
                 position: firstPoint,
                 zIndex: 9999,
@@ -1612,7 +1627,11 @@
                 destination: destination,
                 travelMode: google.maps.TravelMode[currentTravelMode],
             }).then((response) => {
-                if (response.status === 'OK') {
+                if (response.status === 'OK') {                    
+                    // 経路の色を赤に変更 (既に適用済みですが、確認のため記載)
+                    directionsRenderer.setOptions({
+                        polylineOptions: { strokeColor: '#e74c3c', strokeWeight: 5, strokeOpacity: 0.8 }
+                    });
                     // overview_pathの代わりに、より詳細なstepsのpathを連結して使用する
                     const detailedPath = response.routes[0].legs.flatMap(leg => leg.steps.flatMap(step => step.path));
                     directionsRenderer.setDirections(response);
@@ -1695,7 +1714,7 @@
                     gpxRoutePolyline = new google.maps.Polyline({
                         path: interpolatedPath,
                         geodesic: true,
-                        strokeColor: '#3498db',
+                        strokeColor: '#e74c3c', // 赤色に変更
                         strokeOpacity: 0.8,
                         strokeWeight: 5
                     });
@@ -2018,6 +2037,7 @@
                 bleConnectButton.textContent = uiStrings[currentLang].disconnect;
                 bleConnectButton.style.backgroundColor = '#e74c3c';
                 speedInput.readOnly = true; // 速度入力を読み取り専用に
+                speedInput.value = 0; // 速度を0にクリア
                 boostButton.style.display = 'block'; // ブーストボタンを表示
                 boostButton.title = uiStrings[currentLang].boost;
 
@@ -2326,8 +2346,27 @@
             map = new google.maps.Map(document.getElementById('map'), {
                 center: initialLocation,
                 zoom: 12,
-                streetViewControl: false,
+                streetViewControl: false, // ストリートビューのペグマンを非表示
+                mapTypeControl: false,    // デフォルトのマップ/航空写真コントロールを非表示
+                mapTypeControlOptions: {
+                    style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
+                    position: google.maps.ControlPosition.LEFT_BOTTOM // 新しい位置を指定
+                }
             });
+
+            // 地図上に検索ボックスを作成して配置
+            const searchInput = document.createElement('input');
+            searchInput.id = 'pac-input';
+            searchInput.type = 'text';
+            searchInput.placeholder = '場所を検索';
+            searchInput.style.cssText = 'background-color: #fff; font-family: Roboto; font-size: 15px; font-weight: 300; margin: 10px 0 10px 10px; padding: 5px 10px; width: 300px; border: 1px solid #ccc; box-shadow: 0 2px 6px rgba(0,0,0,0.3); border-radius: 3px;';
+            
+            const searchBox = new google.maps.places.SearchBox(searchInput);
+            map.controls[google.maps.ControlPosition.TOP_LEFT].push(searchInput);
+
+            // 検索ボックスのプレースホルダーを多言語対応
+            searchInput.placeholder = uiStrings[currentLang].searchForPlace || 'Search for a Place';
+            // (setLanguage関数にも同様の処理を追加すると、言語切り替え時に反映されます)
 
             panorama = new google.maps.StreetViewPanorama(document.getElementById('street-view'), {
                 position: initialLocation,
@@ -2341,6 +2380,30 @@
             directionsRenderer = new google.maps.DirectionsRenderer({ map: map, suppressMarkers: true });
             elevationService = new google.maps.ElevationService();
             streetViewService = new google.maps.StreetViewService();
+
+            // SearchBoxで場所が選択されたときのリスナー
+            streetViewCoverageLayer = new google.maps.StreetViewCoverageLayer();
+
+            // SearchBoxで場所が選択されたときのリスナー
+            // カスタムのマップタイプコントロールを先に有効にする
+            map.setOptions({ mapTypeControl: true });
+
+            // マップ左下のコントロールを配置
+            const mapControlsContainer = document.getElementById('map-controls-container');
+            map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(mapControlsContainer);
+
+            mapControlsContainer.style.display = 'flex'; // 表示を有効にする
+
+            searchBox.addListener('places_changed', () => {
+                const places = searchBox.getPlaces();
+
+                if (places.length == 0) {
+                    return;
+                }
+
+                // 最初の場所を取得してジャンプ
+                jumpToPlace(places[0]);
+            });
 
             // POIクリックで情報ウィンドウを表示し、出発地/目的地に設定する機能
             placesService = new google.maps.places.PlacesService(map);
@@ -2376,6 +2439,9 @@
                             infoWindow.setContent(content);
                             infoWindow.setPosition(e.latLng);
                             infoWindow.open(map);
+
+                            // ストリートビューの位置をクリックした場所に更新
+                            panorama.setPosition(place.geometry.location);
                         }
                     });
                 }
@@ -2425,25 +2491,6 @@
             destinationAutocomplete.addListener('place_changed', () => {
                 destinationLatLng = destinationAutocomplete.getPlace()?.geometry?.location || null;
             });
-            // 場所検索モーダルのオートコンプリート設定
-            placeSearchAutocomplete = new google.maps.places.Autocomplete(placeSearchInput, {
-                fields: ["geometry", "name"],
-                types: ["geocode", "establishment"],
-            });
-            placeSearchAutocomplete.addListener('place_changed', () => {
-                selectedJumpPlace = placeSearchAutocomplete.getPlace();
-            });
-
-            // 場所検索モーダルのイベントリスナー
-            jumpToPlaceButton.addEventListener('click', () => {
-                placeSearchModal.style.display = 'flex';
-                placeSearchInput.focus();
-            });
-            closeModalButton.addEventListener('click', () => placeSearchModal.style.display = 'none');
-            searchPlaceButton.addEventListener('click', () => {
-                if (selectedJumpPlace) jumpToPlace(selectedJumpPlace);
-                placeSearchModal.style.display = 'none';
-            });
 
             const elevationChartCanvas = document.getElementById('elevation-chart');
             elevationChartCanvas.addEventListener('click', handleChartClick);
@@ -2467,6 +2514,12 @@
                 btn.addEventListener('click', (e) => {
                     setLanguage(e.target.dataset.lang);
                 });
+            });
+
+            // ストリートビューカバレッジのトグルスイッチ
+            const svCoverageToggle = document.getElementById('sv-coverage-toggle');
+            svCoverageToggle.addEventListener('change', (event) => {
+                streetViewCoverageLayer.setMap(event.target.checked ? map : null);
             });
 
             // タブが再度表示されたときにWake Lockを再取得する
@@ -2580,6 +2633,9 @@
             fullscreenButton = document.getElementById('fullscreen-button');
             fullscreenButton.addEventListener('click', toggleFullscreen);
             document.addEventListener('fullscreenchange', updateFullscreenButtonState);
+
+            // 初期速度を設定
+            speedInput.value = defaultSettings[currentTravelMode].speed;
 
             loadMapsScript();
             setLanguage(currentLang); // 初期言語を設定
