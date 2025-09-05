@@ -2646,6 +2646,16 @@
                 initMap();
                 return;
             }
+
+            // Google Maps APIキーが無効だった場合に呼び出されるコールバック
+            window.gm_authFailure = function() {
+                console.error("Google Maps API key authentication failed. Clearing the stored key.");
+                // 保存されている無効なAPIキーを削除
+                localStorage.removeItem('streetMoViewApiKey');
+                // ページをリロードして、再度キー入力を促す
+                location.reload();
+            };
+
             const script = document.createElement('script');
             script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMap&libraries=places,geometry`;
             script.async = true;
