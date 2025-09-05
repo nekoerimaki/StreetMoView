@@ -668,12 +668,15 @@
                 exitFullscreen: 'フルスクリーン解除',
                 fullscreenError: 'フルスクリーンモードへの移行に失敗しました: ',
                 setAsOrigin: '出発地に設定',
+                setAsDestinationAndSearch: '目的地にして経路検索',
                 setAsDestination: '目的地に設定',
                 setAsHome: 'ホームに設定',
                 homeSet: 'ホーム地点を設定しました。次回起動時にこの場所から開始します。',
                 boost: 'ブースト',
                 boostOn: 'ブーストON',
-                routeSettingsDisabled: 'ツアー中またはログ記録中は経路設定を変更できません。'
+                routeSettingsDisabled: 'ツアー中またはログ記録中は経路設定を変更できません。',
+                searchForPlace: '場所を検索',
+                svCoverage: 'SV道路表示'
             },
             en: {
                 routeSettings: 'Route Settings',
@@ -750,12 +753,15 @@
                 exitFullscreen: 'Exit Fullscreen',
                 fullscreenError: 'Error attempting to enable full-screen mode: ',
                 setAsOrigin: 'Set as Origin',
+                setAsDestinationAndSearch: 'Set as Dest & Search',
                 setAsDestination: 'Set as Destination',
                 setAsHome: 'Set as Home',
                 homeSet: 'Home location set. The app will start here next time.',
                 boost: 'Boost',
                 boostOn: 'Boost ON',
-                routeSettingsDisabled: 'Cannot change route settings during a tour or while logging.'
+                routeSettingsDisabled: 'Cannot change route settings during a tour or while logging.',
+                searchForPlace: 'Search for a Place',
+                svCoverage: 'SV Coverage'
             }
         };
         let currentLang = 'ja';
@@ -1272,6 +1278,12 @@
                     el.placeholder = uiStrings[lang][key];
                 }
             });
+
+            // 検索ボックスのプレースホルダーを更新
+            const searchInput = document.getElementById('pac-input');
+            if (searchInput) {
+                searchInput.placeholder = uiStrings[lang].searchForPlace || 'Search for a Place';
+            }
 
             // 状態によってテキストが変わるボタンを更新
             toggleTourButton.textContent = isTourRunning ? uiStrings[lang].stopTour : uiStrings[lang].startTour;
@@ -2364,10 +2376,8 @@
             const searchBox = new google.maps.places.SearchBox(searchInput);
             map.controls[google.maps.ControlPosition.TOP_LEFT].push(searchInput);
 
-            // 検索ボックスのプレースホルダーを多言語対応
-            searchInput.placeholder = uiStrings[currentLang].searchForPlace || 'Search for a Place';
-            // (setLanguage関数にも同様の処理を追加すると、言語切り替え時に反映されます)
-
+            // 検索ボックスのプレースホルダーを初期設定
+            searchInput.placeholder = uiStrings[currentLang].searchForPlace;
             panorama = new google.maps.StreetViewPanorama(document.getElementById('street-view'), {
                 position: initialLocation,
                 visible: true,
@@ -2424,6 +2434,12 @@
                         if (status === google.maps.places.PlacesServiceStatus.OK && place && place.geometry && place.geometry.location) {
                             selectedPlace = place; // クリックされた場所の情報を保持
 
+                            // 出発地が入力されているかチェック
+                            const isOriginSet = originInput.value.trim() !== '' || originLatLng !== null;
+                            const setDestButtonText = isOriginSet ? uiStrings[currentLang].setAsDestinationAndSearch : uiStrings[currentLang].setAsDestination;
+                            const setDestButtonId = isOriginSet ? 'set-dest-and-search-btn' : 'set-dest-btn';
+
+
                             // InfoWindowに表示するHTMLコンテンツを生成
                             const content = `
                                 <div style="color: #333; font-family: 'Inter', sans-serif; line-height: 1.5;">
@@ -2431,7 +2447,7 @@
                                     ${place.formatted_address ? `<div style="font-size: 13px; color: #555; margin-bottom: 12px;">${place.formatted_address}</div>` : ''}
                                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                         <button class="infowindow-btn" id="set-origin-btn">${uiStrings[currentLang].setAsOrigin}</button>
-                                        <button class="infowindow-btn" id="set-dest-btn">${uiStrings[currentLang].setAsDestination}</button>
+                                        <button class="infowindow-btn" id="${setDestButtonId}">${setDestButtonText}</button>
                                         <button class="infowindow-btn" id="set-home-btn" style="background-color: #27ae60;">${uiStrings[currentLang].setAsHome}</button>
                                     </div>
                                 </div>
@@ -2461,6 +2477,15 @@
                         destinationInput.value = selectedPlace.name || selectedPlace.formatted_address;
                         destinationLatLng = selectedPlace.geometry.location;
                         infoWindow.close();
+                    }
+                });
+                document.getElementById('set-dest-and-search-btn')?.addEventListener('click', () => {
+                    if (selectedPlace) {
+                        destinationInput.value = selectedPlace.name || selectedPlace.formatted_address;
+                        destinationLatLng = selectedPlace.geometry.location;
+                        infoWindow.close();
+                        // 即座に経路検索を実行
+                        calculateAndDisplayRoute();
                     }
                 });
                 document.getElementById('set-home-btn')?.addEventListener('click', () => {
