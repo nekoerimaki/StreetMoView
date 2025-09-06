@@ -585,6 +585,11 @@
                 <input type="checkbox" id="sv-coverage-toggle">
                 <span class="slider"></span>
             </label>
+            <label for="user-content-toggle" data-i18n="userContent">ユーザー投稿</label>
+            <label class="switch">
+                <input type="checkbox" id="user-content-toggle" checked>
+                <span class="slider"></span>
+            </label>
         </div>
     </div>
     <div id="message-box"></div>
@@ -604,6 +609,7 @@
                 searchRoute: '経路を検索',
                 loadGpx: 'GPXを読み込む',
                 speed: '速度 (km/時):',
+                userContent: 'ユーザー投稿',
                 startTour: 'ツアー開始',
                 stopTour: 'ツアー停止',
                 connectPower: 'パワーソースに接続',
@@ -688,6 +694,7 @@
                 interpolationInterval: 'Interval (m):',
                 searchRoute: 'Search Route',
                 loadGpx: 'Load GPX',
+                userContent: 'User Content',
                 speed: 'Speed (km/h):',
                 startTour: 'Start Tour',
                 stopTour: 'Stop Tour',
@@ -1155,6 +1162,7 @@
         let isLogging = false;
         let logData = [];
         let currentPower = 0;
+        let showUserContent = true; // ユーザー投稿データを表示するかのフラグ
         let currentCadence = 0;
         let currentHeartRate = 0;
         let isBoostActive = false;
@@ -1748,7 +1756,7 @@
                 const { data } = await streetViewService.getPanorama({
                     location: targetPosition,
                     radius: 100,
-                    source: google.maps.StreetViewSource.DEFAULT,
+                    source: showUserContent ? google.maps.StreetViewSource.DEFAULT : google.maps.StreetViewSource.GOOGLE,
                     preference: google.maps.StreetViewPreference.NEAREST
                 });
 
@@ -2380,7 +2388,8 @@
             panorama = new google.maps.StreetViewPanorama(document.getElementById('street-view'), {
                 position: initialLocation,
                 visible: true,
-                pov: { heading: 0, pitch: 0, zoom: 1 }
+                pov: { heading: 0, pitch: 0, zoom: 1 },
+                source: google.maps.StreetViewSource.DEFAULT // 初期状態ではユーザー投稿も表示
             });
 
             map.setStreetView(panorama);
@@ -2544,6 +2553,14 @@
             const svCoverageToggle = document.getElementById('sv-coverage-toggle');
             svCoverageToggle.addEventListener('change', (event) => {
                 streetViewCoverageLayer.setMap(event.target.checked ? map : null);
+            });
+
+            // ユーザー投稿データ表示のトグルスイッチ
+            const userContentToggle = document.getElementById('user-content-toggle');
+            userContentToggle.addEventListener('change', (event) => {
+                showUserContent = event.target.checked;
+                // panoramaのsourceを更新して即時反映
+                panorama.setOptions({ source: showUserContent ? google.maps.StreetViewSource.DEFAULT : google.maps.StreetViewSource.OUTDOOR });
             });
 
             // タブが再度表示されたときにWake Lockを再取得する
