@@ -529,12 +529,16 @@
         </div>
         <div id="info-display">
             <div class="info-item">
-                <span class="info-label" data-i18n="distTraveled">移動距離</span>
-                <span class="info-value" id="dist-traveled">0.00 km</span>
-            </div>
-            <div class="info-item">
                 <span class="info-label" data-i18n="totalDist">経路全体</span>
                 <span class="info-value" id="total-dist">0.00 km</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label" data-i18n="currentPos">現在位置</span>
+                <span class="info-value" id="current-pos">0.00 km</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label" data-i18n="distTraveled">移動距離</span>
+                <span class="info-value" id="dist-traveled">0.00 km</span>
             </div>
             <div class="info-item">
                 <span class="info-label" data-i18n="timeElapsed">移動時間</span>
@@ -619,6 +623,7 @@
                 stopLog: 'ログ終了',
                 distTraveled: '移動距離',
                 totalDist: '経路全体',
+                currentPos: '現在位置',
                 timeElapsed: '移動時間',
                 timeRemaining: '残り時間',
                 elevation: '標高',
@@ -705,6 +710,7 @@
                 stopLog: 'Stop Logging',
                 distTraveled: 'Distance Traveled',
                 totalDist: 'Total Distance',
+                currentPos: 'Current Position',
                 timeElapsed: 'Time Elapsed',
                 timeRemaining: 'Time Remaining',
                 elevation: 'Elevation',
@@ -1069,15 +1075,17 @@
          */
         function updateInfoDisplay() {
             const totalDistanceKm = (totalDistance / 1000).toFixed(2);
+            const currentPositionKm = (currentPositionDistance / 1000).toFixed(2);
             const distanceTraveledKm = (distanceTraveled / 1000).toFixed(2);
             const timeElapsed = totalTimeElapsed + (tourStartTime > 0 ? (Date.now() - tourStartTime) / 1000 : 0);
 
-            const remainingDistance = Math.max(0, totalDistance - distanceTraveled);            const speedKmH = currentSpeedMps * 3.6;
+            const remainingDistance = Math.max(0, totalDistance - currentPositionDistance);            const speedKmH = currentSpeedMps * 3.6;
             let timeRemaining = 0;
             if (speedKmH > 0) {
                 timeRemaining = (remainingDistance / 1000) / speedKmH * 3600;
             }
 
+            document.getElementById('current-pos').textContent = `${currentPositionKm} km`;
             document.getElementById('total-dist').textContent = `${totalDistanceKm} km`;
             document.getElementById('dist-traveled').textContent = `${distanceTraveledKm} km`;
             document.getElementById('time-elapsed').textContent = formatTime(timeElapsed);
@@ -1131,7 +1139,7 @@
             }
 
             // グラフを更新
-            drawElevationChart(distanceTraveled);
+            drawElevationChart(currentPositionDistance);
         }
 
         let map, panorama;
@@ -1153,7 +1161,8 @@
         let startMarker, endMarker;
         let totalDistance = 0;
         let wakeLockSentinel = null;
-        let distanceTraveled = 0;
+        let currentPositionDistance = 0; // 経路上の現在位置を示す距離
+        let distanceTraveled = 0; // 実際に走行した総距離
         let tourStartTime = 0;
         let directionOffset = 0;
         let totalTimeElapsed = 0;
@@ -1161,6 +1170,8 @@
         let currentTourSpeedKmH = 0;
         let isLogging = false;
         let logData = [];
+        let logStartDistance = 0; // ログ開始時の走行距離
+        let logStartTime = 0; // ログ開始時刻
         let currentPower = 0;
         let showUserContent = true; // ユーザー投稿データを表示するかのフラグ
         let currentCadence = 0;
@@ -1400,7 +1411,8 @@
             routeElevations = [];
             routeGradients = [];
             totalDistance = 0;
-            distanceTraveled = 0;
+            currentPositionDistance = 0;
+            distanceTraveled = 0; // 走行距離もリセット
             currentPointIndex = 0;
             // パワーソースに接続されていない場合のみ、現在の移動モードのデフォルト速度を再設定
             if (!bleDevice || !bleDevice.gatt.connected) {
@@ -1436,7 +1448,7 @@
             // 最初に全ポイントの累積距離を計算
             cumulativeDistances = [0];
             for (let i = 1; i < path.length; i++) {
-                cumulativeDistances.push(cumulativeDistances[i-1] + getDistance(path[i-1], path[i]));
+                cumulativeDistances.push(cumulativeDistances[i - 1] + getDistance(path[i - 1], path[i]));
             }
             totalDistance = cumulativeDistances[cumulativeDistances.length - 1];
 
@@ -1615,7 +1627,7 @@
             updateInfoDisplay();
             toggleTourButton.disabled = false;
 
-            // 初期グラフを描画
+            // 初期グラフを描画 (現在地は0)
             drawElevationChart(0);
         }
 
@@ -1830,11 +1842,12 @@
             }
 
             const deltaDistance = currentSpeedMps * deltaTime;
-            distanceTraveled += deltaDistance;
+            currentPositionDistance += deltaDistance;
+            distanceTraveled += deltaDistance; // 実際に走行した距離も加算
             distanceSinceLastSvUpdate += deltaDistance;
 
-            if (distanceTraveled >= totalDistance) {
-                distanceTraveled = totalDistance;
+            if (currentPositionDistance >= totalDistance) {
+                currentPositionDistance = totalDistance;
                 currentPointIndex = routePoints.length - 1;
                 if (currentLocationMarker && routePoints.length > 0) {
                     currentLocationMarker.setPosition(routePoints[currentPointIndex]);
@@ -1846,7 +1859,7 @@
             }
 
             // 現在のインデックスを更新
-            while (currentPointIndex < cumulativeDistances.length - 1 && distanceTraveled > cumulativeDistances[currentPointIndex + 1]) {
+            while (currentPointIndex < cumulativeDistances.length - 1 && currentPositionDistance > cumulativeDistances[currentPointIndex + 1]) {
                 currentPointIndex++;
             }
 
@@ -1870,7 +1883,7 @@
                     power: currentPower,
                     cadence: currentCadence,
                     heartRate: currentHeartRate,
-                    distance: distanceTraveled,
+                    distance: distanceTraveled, // ログには実際に走行した総距離を記録
                     speed: currentSpeedMps * 3.6 // km/hで記録
                 });
             }
@@ -1885,7 +1898,7 @@
 
             // 距離を経路の範囲内に収める
             newDistance = Math.max(0, Math.min(newDistance, totalDistance));
-            distanceTraveled = newDistance;
+            currentPositionDistance = newDistance;
 
             // 新しい現在地のインデックスを探す
             let newIndex = 0;
@@ -2166,6 +2179,8 @@
             isLogging = !isLogging;
             if (isLogging) {
                 logData = []; // ログを初期化
+                logStartDistance = distanceTraveled; // ログ開始時の走行距離を記録
+                logStartTime = Date.now(); // ログ開始時刻を記録
                 logToggleButton.textContent = uiStrings[currentLang].stopLog;
                 logToggleButton.style.backgroundColor = '#f39c12'; // 記録中を示す色
                 showMessage(uiStrings[currentLang].logStarted, false);
@@ -2185,7 +2200,6 @@
          * 記録したログをTCXファイルとして保存します。
          */
         function saveLogAsTcx() {
-            const startTime = logData.length > 0 ? logData[0].timestamp : new Date().toISOString();
             let maxSpeedMs = 0; // m/s単位での最大速度
 
             let trackpointsXml = logData.map(p => {
@@ -2230,15 +2244,17 @@
           </Trackpoint>`;
             }).join('');
 
-            const totalTimeSeconds = (new Date(logData[logData.length - 1].timestamp).getTime() - new Date(logData[0].timestamp).getTime()) / 1000;
-            const totalDistanceMeters = logData.length > 0 ? logData[logData.length - 1].distance : 0;
+            const lapStartTimeISO = new Date(logStartTime).toISOString();
+            const logEndTime = Date.now();
+            const totalTimeSeconds = (logEndTime - logStartTime) / 1000;
+            const totalDistanceMeters = distanceTraveled - logStartDistance;
 
             const tcxContent = `<?xml version="1.0" encoding="UTF-8"?>
 <TrainingCenterDatabase xsi:schemaLocation="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2 http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd" xmlns:ns5="http://www.garmin.com/xmlschemas/ActivityGoals/v1" xmlns:ns3="http://www.garmin.com/xmlschemas/ActivityExtension/v2" xmlns:ns2="http://www.garmin.com/xmlschemas/UserProfile/v2" xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ns4="http://www.garmin.com/xmlschemas/ProfileExtension/v1">
   <Activities>
     <Activity Sport="Biking">
-      <Id>${startTime}</Id>
-      <Lap StartTime="${startTime}">
+      <Id>${lapStartTimeISO}</Id>
+      <Lap StartTime="${lapStartTimeISO}">
         <TotalTimeSeconds>${totalTimeSeconds.toFixed(0)}</TotalTimeSeconds>
         <DistanceMeters>${totalDistanceMeters.toFixed(2)}</DistanceMeters>
         <MaximumSpeed>${maxSpeedMs.toFixed(2)}</MaximumSpeed>
@@ -2254,8 +2270,7 @@
             const blob = new Blob([tcxContent], { type: 'application/vnd.garmin.tcx+xml' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            const date = new Date(startTime);
+            a.href = url;            const date = new Date(logStartTime);
             const filename = `activity_${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2,'0')}${date.getDate().toString().padStart(2,'0')}_${date.getHours().toString().padStart(2,'0')}${date.getMinutes().toString().padStart(2,'0')}.tcx`;
             a.download = filename;
             document.body.appendChild(a);
