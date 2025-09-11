@@ -258,8 +258,8 @@
             padding: 5px 20px;
             display: flex;
             flex-wrap: wrap;
-            gap: 5px 25px;
-            justify-content: space-between;
+            gap: 5px 15px; /* 横のgapを少し詰める */
+            justify-content: flex-start; /* 左詰めにする */
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             font-size: 0.9rem;
         }
@@ -268,6 +268,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            flex-grow: 1; /* 利用可能なスペースを均等に埋める */
         }
         .info-label {
             font-weight: bold;
@@ -376,6 +377,11 @@
             transform: none;
             align-self: center; /* Vertically center in the flex container */
             margin: 0 10px;
+            flex-grow: 0; /* この要素は伸縮させない */
+        }
+        #info-display #boost-button svg {
+            width: 60%; /* ボタンの幅に対する割合でサイズを指定 */
+            height: 100%;
         }
         #info-display #boost-button.active {
             background-color: #f1c40f;
@@ -467,7 +473,54 @@
         #elevation-chart {
             width: 100%;
             height: 100%;
-            cursor: pointer;
+            cursor: not-allowed; /* Initially not clickable */
+        }
+
+        /* ストリートビュー左下の表示方向コントロール（試作） */
+        #direction-control-overlay {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            z-index: 5; /* ストリートビューのUIより手前に表示 */
+            transform: translateX(-50%); /* 要素の幅の半分だけ左にずらして中央揃え */
+            background-color: rgba(255, 255, 255, 0.85);
+            padding: 5px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            display: flex;
+            gap: 2px;
+        }
+
+        #direction-control-overlay button {
+            background-color: #fff;
+            color: #333;
+            border: 1px solid #ccc;
+            box-shadow: none;
+            padding: 6px 10px;
+            font-size: 0.85rem;
+        }
+
+        #direction-control-overlay button.active {
+            background-color: #3498db;
+            color: white;
+            border-color: #2980b9;
+        }
+
+        /* オートブースト設定 */
+        #auto-boost-settings {
+            display: none; /* 初期状態では非表示 */
+        }
+        #auto-boost-settings-dropdown {
+            min-width: 180px;
+            padding: 15px;
+        }
+        #auto-boost-settings-dropdown label {
+            display: block;
+            margin-bottom: 8px;
+        }
+        #auto-boost-threshold {
+            width: 100%;
+            box-sizing: border-box;
         }
     </style>
 </head>
@@ -480,7 +533,7 @@
                     <div class="dropdown-content" id="route-settings-dropdown">                        
                         <input type="text" id="origin-input" placeholder="出発地: 例. 東京駅" data-i18n-placeholder="originPlaceholder">
                         <input type="text" id="destination-input" placeholder="目的地: 例. 渋谷スクランブル交差点" data-i18n-placeholder="destinationPlaceholder">
-                        <button id="dest-to-origin-button" data-i18n="destToOrigin" style="background-color: #95a5a6; font-size: 0.8rem; padding: 4px 8px; width: auto; box-shadow: none;">目的地を出発地に</button>
+                        <button id="dest-to-origin-button" data-i18n="destToOrigin">目的地を出発地に</button>
                         <div class="mode-switcher">
                             <button id="driving-mode-btn" data-mode="DRIVING" data-i18n="driving">自動車</button>
                             <button id="bicycling-mode-btn" data-mode="BICYCLING" class="active" data-i18n="bicycling">自転車</button>
@@ -502,12 +555,11 @@
                     <button id="ble-connect-button" data-i18n="connectPower">パワーソースに接続</button>
                     <button id="hr-connect-button" data-i18n="connectHr">心拍計に接続</button>
                     <button id="log-toggle-button" data-i18n="startLog">ログ開始</button>
-                    <div class="dropdown-container">
-                        <button id="direction-settings-button" data-i18n="directionSettings">表示方向</button>
-                        <div class="dropdown-content" id="direction-settings-dropdown">
-                            <div class="mode-switcher" id="direction-switcher">
-                                <button data-angle="-90" data-i18n="left90">左90°</button><button data-angle="-45" data-i18n="left45">左45°</button><button class="active" data-angle="0" data-i18n="front">正面</button><button data-angle="45" data-i18n="right45">右45°</button><button data-angle="90" data-i18n="right90">右90°</button>
-                            </div>
+                    <div class="dropdown-container" id="auto-boost-settings">
+                        <button id="auto-boost-settings-button" data-i18n="autoBoostSettings">自動ブースト</button>
+                        <div class="dropdown-content" id="auto-boost-settings-dropdown">
+                            <label for="auto-boost-threshold" data-i18n="autoBoostThresholdLabel">発動する勾配 (%):</label>
+                            <input type="number" id="auto-boost-threshold" min="0" max="50" step="1">
                         </div>
                     </div>
                 </div>
@@ -561,8 +613,8 @@
                 <span class="info-value" id="power-display">0 W</span>
             </div>
             <button id="boost-button" title="ブースト">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M5.52.359A.5.5 0 0 1 6 0h4a.5.5 0 0 1 .474.658L8.694 6H12.5a.5.5 0 0 1 .395.807l-7 9a.5.5 0 0 1-.873-.454L6.823 9.5H3.5a.5.5 0 0 1-.48-.641l2.5-8.5z"/>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M5.52.359A.5.5 0 0 1 6 0h4a.5.5 0 0 1 .474.658L8.694 6H12.5a.5.5 0 0 1 .395.807l-7 9a.5.5 0 0 1-.873-.454L6.823 9.5H3.5a.5.5 0 0 1-.48-.641z"/>
                 </svg>
             </button>
             <div class="info-item">
@@ -578,7 +630,16 @@
             <canvas id="elevation-chart"></canvas>
         </div>
         <div id="split-container">
-            <div id="street-view"></div>
+            <div id="street-view">
+                <!-- ストリートビュー左下の表示方向コントロール（試作） -->
+                <div id="direction-control-overlay" class="mode-switcher">
+                    <button data-angle="-90" data-i18n="left90">左90°</button>
+                    <button data-angle="-45" data-i18n="left45">左45°</button>
+                    <button data-angle="0" data-i18n="front" class="active">正面</button>
+                    <button data-angle="45" data-i18n="right45">右45°</button>
+                    <button data-angle="90" data-i18n="right90">右90°</button>
+                </div>
+            </div>
             <div class="splitter" id="splitter"></div>
             <div id="map"></div>
         </div>
@@ -683,6 +744,8 @@
                 setAsHome: 'ホームに設定',
                 homeSet: 'ホーム地点を設定しました。次回起動時にこの場所から開始します。',
                 boost: 'ブースト',
+                autoBoostSettings: '自動ブースト',
+                autoBoostThresholdLabel: '発動する勾配 (%):',
                 boostOn: 'ブーストON',
                 routeSettingsDisabled: 'ツアー中またはログ記録中は経路設定を変更できません。',
                 searchForPlace: '場所を検索',
@@ -770,6 +833,8 @@
                 setAsHome: 'Set as Home',
                 homeSet: 'Home location set. The app will start here next time.',
                 boost: 'Boost',
+                autoBoostSettings: 'Auto Boost',
+                autoBoostThresholdLabel: 'Trigger Gradient (%):',
                 boostOn: 'Boost ON',
                 routeSettingsDisabled: 'Cannot change route settings during a tour or while logging.',
                 searchForPlace: 'Search for a Place',
@@ -836,7 +901,6 @@
             container.style.display = 'block';
 
             const canvas = document.getElementById('elevation-chart');
-            canvas.style.cursor = isTourRunning ? 'not-allowed' : 'pointer';
             const ctx = canvas.getContext('2d');
 
             // 高DPIディスプレイに対応
@@ -1178,6 +1242,7 @@
         let currentHeartRate = 0;
         let isBoostActive = false;
         const BOOST_FACTOR = 1.5;
+        let autoBoostThreshold = 10; // オートブーストのしきい値（%）
         let currentSpeedMps = 0; // 現在の速度 (m/s)
 
         let placesService, infoWindow, selectedPlace = null;
@@ -1221,12 +1286,14 @@
         const hrConnectButton = document.getElementById('hr-connect-button');
         const logToggleButton = document.getElementById('log-toggle-button');
         const boostButton = document.getElementById('boost-button');
+        const autoBoostSettings = document.getElementById('auto-boost-settings');
+        const autoBoostSettingsButton = document.getElementById('auto-boost-settings-button');
+        const autoBoostThresholdInput = document.getElementById('auto-boost-threshold');
         const originInput = document.getElementById('origin-input');
         const destinationInput = document.getElementById('destination-input');
         const intervalInput = document.getElementById('interval-input');
-        const directionSettingsButton = document.getElementById('direction-settings-button');
-        const directionSettingsDropdown = document.getElementById('direction-settings-dropdown');
-        const directionButtons = document.querySelectorAll('#direction-switcher button');
+        // 新しいオーバーレイのボタンのみを取得
+        const directionButtons = document.querySelectorAll('#direction-control-overlay button');
         const speedInput = document.getElementById('speed-input');
         const travelModeButtons = document.querySelectorAll('.mode-switcher button');
         let fullscreenButton;        let currentTravelMode = 'BICYCLING';
@@ -1334,8 +1401,8 @@
             if (routeSettingsDropdown.classList.contains('show') && !routeSettingsDropdown.contains(event.target) && !routeSettingsButton.contains(event.target)) {
                 routeSettingsDropdown.classList.remove('show');
             }
-            if (directionSettingsDropdown.classList.contains('show') && !directionSettingsDropdown.contains(event.target) && !directionSettingsButton.contains(event.target)) {
-                directionSettingsDropdown.classList.remove('show');
+            if (autoBoostSettings.querySelector('.dropdown-content.show') && !autoBoostSettings.contains(event.target)) {
+                autoBoostSettings.querySelector('.dropdown-content').classList.remove('show');
             }
         });
 
@@ -1362,28 +1429,41 @@
             });
         });
 
-        // 方向設定ドロップダウン
-        directionSettingsButton.addEventListener('click', (event) => {
-            event.stopPropagation();
-            directionSettingsDropdown.classList.toggle('show');
-        });
-
         directionButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 directionOffset = parseInt(btn.dataset.angle, 10);
+
                 directionButtons.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
+
                 if (!isTourRunning && routePoints.length > 0) {
                     updateStreetView();
                 }
             });
         });
 
+        // 手動ブーストボタンのクリックイベント
         boostButton.addEventListener('click', () => {
             isBoostActive = !isBoostActive;
             boostButton.classList.toggle('active', isBoostActive);
             boostButton.title = isBoostActive ? uiStrings[currentLang].boostOn : uiStrings[currentLang].boost;
         });
+
+        // オートブースト設定ボタンのクリックイベント
+        autoBoostSettingsButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            autoBoostSettings.querySelector('.dropdown-content').classList.toggle('show');
+        });
+
+        // オートブーストしきい値の入力イベント
+        autoBoostThresholdInput.addEventListener('input', () => {
+            const threshold = parseInt(autoBoostThresholdInput.value, 10);
+            if (!isNaN(threshold)) {
+                autoBoostThreshold = threshold;
+                localStorage.setItem('autoBoostThreshold', autoBoostThreshold);
+            }
+        });
+
         /**
          * マップ上のすべてのマーカーをクリアします。
          */
@@ -1615,7 +1695,7 @@
                     if (routePoints.length > 1) {
                         const heading = getHeading(routePoints[0], routePoints[1]);
                         if (!isNaN(heading)) {
-                            panorama.setPov({ heading: (heading + directionOffset + 360) % 360, pitch: 0, zoom: 1 });
+                            panorama.setPov({ heading: (heading + directionOffset + 360) % 360, pitch: 0 });
                         }
                     }
                 } catch (e) {
@@ -1627,6 +1707,7 @@
             updateInfoDisplay();
             toggleTourButton.disabled = false;
 
+            document.getElementById('elevation-chart').style.cursor = 'pointer';
             // 初期グラフを描画 (現在地は0)
             drawElevationChart(0);
         }
@@ -1783,7 +1864,7 @@
                     if (currentPointIndex + 1 < routePoints.length) {
                         const heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
                         if (!isNaN(heading)) {
-                            panorama.setPov({ heading: (heading + directionOffset + 360) % 360, pitch: 0, zoom: 1 });
+                            panorama.setPov({ heading: (heading + directionOffset + 360) % 360, pitch: 0 });
                         }
                     }
                 } else {
@@ -1819,6 +1900,15 @@
                 const boostedPower = isBoostActive ? currentPower * BOOST_FACTOR : currentPower;
                 const propulsiveForce = (boostedPower * C.DRIVETRAIN_EFFICIENCY) / effectiveSpeed;
 
+                // オートブーストのロジック
+                if (autoBoostThreshold > 0) {
+                    if (currentGradient >= autoBoostThreshold) {
+                        isBoostActive = true;
+                    } else {
+                        isBoostActive = false;
+                    }
+                    boostButton.classList.toggle('active', isBoostActive);
+                }
                 // 3. 加速度と新しい速度の計算
                 const netForce = propulsiveForce - totalResistanceForce;
                 const acceleration = netForce / C.TOTAL_MASS;
@@ -2071,6 +2161,7 @@
                 speedInput.readOnly = true; // 速度入力を読み取り専用に
                 speedInput.value = 0; // 速度を0にクリア
                 boostButton.style.display = 'block'; // ブーストボタンを表示
+                autoBoostSettings.style.display = 'inline-block'; // オートブースト設定を表示
                 boostButton.title = uiStrings[currentLang].boost;
 
             } catch (error) {
@@ -2097,6 +2188,7 @@
             speedInput.readOnly = false; // 速度入力を編集可能に戻す
             speedInput.value = 0;
             boostButton.style.display = 'none'; // ブーストボタンを非表示
+            autoBoostSettings.style.display = 'none'; // オートブースト設定を非表示
             isBoostActive = false;
             boostButton.classList.remove('active');
             document.getElementById('power-display').textContent = '0 W';
@@ -2711,6 +2803,12 @@
             // 初期速度を設定
             speedInput.value = defaultSettings[currentTravelMode].speed;
 
+            // 保存されたオートブーストしきい値を読み込む
+            const savedThreshold = localStorage.getItem('autoBoostThreshold');
+            if (savedThreshold !== null) {
+                autoBoostThreshold = parseInt(savedThreshold, 10);
+            }
+            autoBoostThresholdInput.value = autoBoostThreshold;
             setLanguage(currentLang); // ★最初に言語を設定
 
             let GOOGLE_MAPS_API_KEY = localStorage.getItem('streetMoViewApiKey');
@@ -2728,11 +2826,13 @@
                     return; // リフレッシュするので以降の処理は不要
                 } else {
                     // キーが入力されなかった場合はブランクページに移動
-                    window.location.href = 'about:blank';
+                    //window.location.href = 'about:blank';
+                    // 代わりにメッセージを表示する改善案
+                    document.body.innerHTML = '<h1>Google Maps API Key is required. Please reload and enter your key.</h1>';
                     return;
                 }
             }
-
+            
             if (GOOGLE_MAPS_API_KEY) {
                 loadMapsScript();
             } else {
