@@ -47,13 +47,19 @@
             top: 100%;
             left: 0;
             background-color: white;
-            min-width: 250px;
+            min-width: 300px;
             box-shadow: 0 8px 16px rgba(0,0,0,0.2);
             z-index: 1;
             padding: 10px;
             border-radius: 8px;
             flex-direction: column;
             gap: 10px;
+        }
+
+        #settings-dropdown {
+            right: 0; /* 右端に表示 */
+            left: auto;
+            min-width: 250px; /* 経路設定と幅を合わせる */
         }
 
         .dropdown-content.show {
@@ -514,13 +520,43 @@
             min-width: 180px;
             padding: 15px;
         }
-        #auto-boost-settings-dropdown label {
-            display: block;
-            margin-bottom: 8px;
+
+        .settings-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
         }
-        #auto-boost-threshold {
-            width: 100%;
-            box-sizing: border-box;
+        .settings-item label {
+            white-space: nowrap;
+        }
+        .settings-item select {
+            flex-shrink: 0; /* 幅が縮まないようにする */
+        }
+        .settings-item label {
+            flex-grow: 1; /* ラベルが利用可能なスペースを埋める */
+        }
+        .settings-item select {
+            flex-grow: 1; /* 残りのスペースをすべて使う */
+        }
+        .settings-item switch {
+            width: 70px; /* 固定幅を指定 */
+            flex-shrink: 0; /* 幅が縮まないようにする */
+        }
+        .settings-item input[type="number"] {
+            width: 70px; /* 固定幅を指定 */
+            flex-shrink: 0; /* 幅が縮まないようにする */
+        }
+        #settings-dropdown #lang-switcher {
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        #settings-dropdown input[type="number"], #settings-dropdown select {
+            padding: 8px;
+            font-size: 0.9rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
         }
     </style>
 </head>
@@ -555,19 +591,43 @@
                     <button id="ble-connect-button" data-i18n="connectPower">パワーソースに接続</button>
                     <button id="hr-connect-button" data-i18n="connectHr">心拍計に接続</button>
                     <button id="log-toggle-button" data-i18n="startLog">ログ開始</button>
-                    <div class="dropdown-container" id="auto-boost-settings">
-                        <button id="auto-boost-settings-button" data-i18n="autoBoostSettings">自動ブースト</button>
-                        <div class="dropdown-content" id="auto-boost-settings-dropdown">
-                            <label for="auto-boost-threshold" data-i18n="autoBoostThresholdLabel">発動する勾配 (%):</label>
-                            <input type="number" id="auto-boost-threshold" min="0" max="50" step="1">
-                        </div>
-                    </div>
                 </div>
             </div>
             <div class="header-links">
-                <div id="lang-switcher">
-                    <button data-lang="ja" class="lang-btn active">日本語</button>
-                    <button data-lang="en" class="lang-btn">English</button>
+                <div class="dropdown-container" id="settings-container">
+                    <button id="settings-button" title="設定" data-i18n="settings">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                            <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
+                        </svg>
+                        <span data-i18n="settings">設定</span>
+                    </button>
+                    <div class="dropdown-content" id="settings-dropdown">
+                        <div id="lang-switcher">
+                            <button data-lang="ja" class="lang-btn active">日本語</button>
+                            <button data-lang="en" class="lang-btn">English</button>
+                        </div>
+                        <div class="settings-item">
+                            <label for="voice-guidance-toggle" data-i18n="voiceGuidance">音声ガイダンス</label>
+                            <div>
+                            <label class="switch">
+                                <input type="checkbox" id="voice-guidance-toggle">
+                                <span class="slider"></span>
+                            </label>
+                            </div>
+                        </div>
+                        <div class="settings-item">
+                            <label for="voice-select" data-i18n="voiceSelect">声色</label>
+                            <select id="voice-select" disabled></select>
+                        </div>
+                        <div class="settings-item">
+                            <label for="geocode-interval-input" data-i18n="geocodeInterval">住所確認の間隔 (m)</label>
+                            <input type="number" id="geocode-interval-input" min="100" max="5000" step="100">
+                        </div>
+                        <div class="settings-item">
+                            <label for="auto-boost-threshold" data-i18n="autoBoostThresholdLabel">自動ブースト勾配 (%)</label>
+                            <input type="number" id="auto-boost-threshold" min="0" max="50" step="1">
+                        </div>
+                    </div>
                 </div>
                 <button id="fullscreen-button" title="フルスクリーン">
                     <svg class="icon-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="28" height="28">
@@ -744,8 +804,13 @@
                 setAsHome: 'ホームに設定',
                 homeSet: 'ホーム地点を設定しました。次回起動時にこの場所から開始します。',
                 boost: 'ブースト',
+                municipalityGuidance: '{municipality} を移動中です。',
+                settings: '設定',
+                voiceGuidance: '音声ガイダンス',
+                voiceSelect: '声色',
+                geocodeInterval: '住所確認の間隔 (m)',
                 autoBoostSettings: '自動ブースト',
-                autoBoostThresholdLabel: '発動する勾配 (%):',
+                autoBoostThresholdLabel: '自動ブースト勾配 (%)',
                 boostOn: 'ブーストON',
                 routeSettingsDisabled: 'ツアー中またはログ記録中は経路設定を変更できません。',
                 searchForPlace: '場所を検索',
@@ -833,8 +898,13 @@
                 setAsHome: 'Set as Home',
                 homeSet: 'Home location set. The app will start here next time.',
                 boost: 'Boost',
+                municipalityGuidance: 'Now passing through {municipality}.',
+                settings: 'Settings',
+                voiceGuidance: 'Voice Guidance',
+                voiceSelect: 'Voice',
+                geocodeInterval: 'Location Check Interval (m)',
                 autoBoostSettings: 'Auto Boost',
-                autoBoostThresholdLabel: 'Trigger Gradient (%):',
+                autoBoostThresholdLabel: 'Auto Boost Gradient',
                 boostOn: 'Boost ON',
                 routeSettingsDisabled: 'Cannot change route settings during a tour or while logging.',
                 searchForPlace: 'Search for a Place',
@@ -1246,6 +1316,7 @@
         let currentSpeedMps = 0; // 現在の速度 (m/s)
 
         let placesService, infoWindow, selectedPlace = null;
+        let geocoder;
         let originLatLng = null, destinationLatLng = null;
 
         // 場所検索モーダル用
@@ -1253,6 +1324,9 @@
         let originAutocomplete, destinationAutocomplete;
 
 
+        let currentMunicipality = ''; // 現在の市区町村名を保持
+        let distanceSinceLastGeocode = 0; // 最後のジオコードからの距離
+        let geocodeIntervalDistance = 1000; // 住所確認の間隔 (m)
         const PHYSICS_CONSTANTS = {
             RIDER_MASS: 70, // kg
             BIKE_MASS: 10, // kg
@@ -1286,8 +1360,12 @@
         const hrConnectButton = document.getElementById('hr-connect-button');
         const logToggleButton = document.getElementById('log-toggle-button');
         const boostButton = document.getElementById('boost-button');
-        const autoBoostSettings = document.getElementById('auto-boost-settings');
-        const autoBoostSettingsButton = document.getElementById('auto-boost-settings-button');
+        const settingsContainer = document.getElementById('settings-container');
+        const settingsButton = document.getElementById('settings-button');
+        const settingsDropdown = document.getElementById('settings-dropdown');
+        const voiceGuidanceToggle = document.getElementById('voice-guidance-toggle');
+        const voiceSelect = document.getElementById('voice-select');
+        const geocodeIntervalInput = document.getElementById('geocode-interval-input');
         const autoBoostThresholdInput = document.getElementById('auto-boost-threshold');
         const originInput = document.getElementById('origin-input');
         const destinationInput = document.getElementById('destination-input');
@@ -1339,6 +1417,64 @@
             }
         }
 
+        // --- 音声合成関連 ---
+        let voices = [];
+        let isVoiceGuidanceEnabled = true;
+
+        function populateVoiceList() {
+            if (typeof speechSynthesis === 'undefined') return;
+            voices = speechSynthesis.getVoices().filter(voice => voice.lang.startsWith(currentLang));
+            voiceSelect.innerHTML = '';
+            if (voices.length > 0) {
+                voices.forEach(voice => {
+                    const option = document.createElement('option');
+                    option.textContent = `${voice.name} (${voice.lang})`;
+                    option.setAttribute('data-name', voice.name);
+                    voiceSelect.appendChild(option);
+                });
+                voiceSelect.disabled = false;
+                // 保存された音声を選択 (言語が変わっても対応できるように)
+                const savedVoiceName = localStorage.getItem('selectedVoiceName');
+                if (savedVoiceName) {
+                    const savedOption = Array.from(voiceSelect.options).find(opt => opt.getAttribute('data-name') === savedVoiceName);
+                    if (savedOption) savedOption.selected = true;
+                }
+            } else {
+                voiceSelect.disabled = true;
+            }
+        }
+        // ブラウザによっては onvoiceschanged が一度しか呼ばれない、または呼ばれないことがあるため、遅延実行も加える
+        populateVoiceList();
+        if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = populateVoiceList;
+        }
+
+        /**
+         * 指定されたテキストを音声で読み上げます。
+         * @param {string} text - 読み上げるテキスト
+         * @param {string} lang - 言語コード (e.g., 'ja-JP')
+         */
+        function speak(text, lang) {
+            if ('speechSynthesis' in window && isVoiceGuidanceEnabled) {
+                // 既存の発言があればキャンセル
+                window.speechSynthesis.cancel();
+
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = lang;
+                utterance.rate = 1.1; // 少し早口に
+                utterance.pitch = 1.0;
+
+                const selectedVoiceName = voiceSelect.selectedOptions[0]?.getAttribute('data-name');
+                if (selectedVoiceName) {
+                    const selectedVoice = voices.find(voice => voice.name === selectedVoiceName);
+                    if (selectedVoice) utterance.voice = selectedVoice;
+                }
+
+                window.speechSynthesis.speak(utterance);
+            } else {
+                console.warn('このブラウザは音声合成をサポートしていません。');
+            }
+        }
         /**
          * UIの言語を設定します。
          * @param {string} lang - 言語コード ('ja' or 'en')
@@ -1382,6 +1518,9 @@
             if (endMarker) endMarker.setTitle(uiStrings[lang].endPoint);
             if (currentLocationMarker) currentLocationMarker.setTitle(uiStrings[lang].currentLocation);
 
+            // 声色の選択肢を更新
+            populateVoiceList();
+
             // 言語スイッチャーボタンのアクティブ状態を更新
             document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.lang === lang));
         }
@@ -1401,8 +1540,8 @@
             if (routeSettingsDropdown.classList.contains('show') && !routeSettingsDropdown.contains(event.target) && !routeSettingsButton.contains(event.target)) {
                 routeSettingsDropdown.classList.remove('show');
             }
-            if (autoBoostSettings.querySelector('.dropdown-content.show') && !autoBoostSettings.contains(event.target)) {
-                autoBoostSettings.querySelector('.dropdown-content').classList.remove('show');
+            if (settingsDropdown.classList.contains('show') && !settingsContainer.contains(event.target)) {
+                settingsDropdown.classList.remove('show');
             }
         });
 
@@ -1449,13 +1588,32 @@
             boostButton.title = isBoostActive ? uiStrings[currentLang].boostOn : uiStrings[currentLang].boost;
         });
 
-        // オートブースト設定ボタンのクリックイベント
-        autoBoostSettingsButton.addEventListener('click', (event) => {
+        // --- 設定メニュー関連のイベントリスナー ---
+        settingsButton.addEventListener('click', (event) => {
             event.stopPropagation();
-            autoBoostSettings.querySelector('.dropdown-content').classList.toggle('show');
+            settingsDropdown.classList.toggle('show');
         });
 
-        // オートブーストしきい値の入力イベント
+        voiceGuidanceToggle.addEventListener('change', () => {
+            isVoiceGuidanceEnabled = voiceGuidanceToggle.checked;
+            localStorage.setItem('isVoiceGuidanceEnabled', isVoiceGuidanceEnabled);
+        });
+
+        voiceSelect.addEventListener('change', () => {
+            const selectedVoiceName = voiceSelect.selectedOptions[0]?.getAttribute('data-name');
+            if (selectedVoiceName) {
+                localStorage.setItem('selectedVoiceName', selectedVoiceName);
+            }
+        });
+
+        geocodeIntervalInput.addEventListener('input', () => {
+            const interval = parseInt(geocodeIntervalInput.value, 10);
+            if (!isNaN(interval) && interval >= 100) {
+                geocodeIntervalDistance = interval;
+                localStorage.setItem('geocodeIntervalDistance', geocodeIntervalDistance);
+            }
+        });
+
         autoBoostThresholdInput.addEventListener('input', () => {
             const threshold = parseInt(autoBoostThresholdInput.value, 10);
             if (!isNaN(threshold)) {
@@ -1934,6 +2092,7 @@
             const deltaDistance = currentSpeedMps * deltaTime;
             currentPositionDistance += deltaDistance;
             distanceTraveled += deltaDistance; // 実際に走行した距離も加算
+            distanceSinceLastGeocode += deltaDistance;
             distanceSinceLastSvUpdate += deltaDistance;
 
             if (currentPositionDistance >= totalDistance) {
@@ -1962,6 +2121,11 @@
             if (distanceSinceLastSvUpdate >= STREETVIEW_UPDATE_DISTANCE) {
                 updateStreetView();
                 distanceSinceLastSvUpdate = 0;
+            }
+
+            if (distanceSinceLastGeocode >= geocodeIntervalDistance) {
+                checkMunicipalityBoundary(currentPosition);
+                distanceSinceLastGeocode = 0; // こちらをリセットするのが正しい
             }
 
             if (isLogging) {
@@ -2009,6 +2173,59 @@
 
             // 情報表示とグラフを更新
             updateInfoDisplay();
+        }
+
+        /**
+         * 指定された座標の市区町村を確認し、境界を越えていたらガイダンスを再生します。
+         * @param {google.maps.LatLng} location - 確認する場所の座標
+         */
+        async function checkMunicipalityBoundary(location) {
+            if (!geocoder) return;
+
+            try {
+                const { results } = await geocoder.geocode({ 
+                    location: location, 
+                    language: currentLang 
+                });
+                // デバッグ用に取得した住所情報をコンソールに出力
+                console.log('Geocoding Result:', results[0]?.formatted_address, results);
+
+                if (results && results[0]) {
+                    const addressComponents = results[0].address_components;
+                    let newPrefecture = '';
+                    let newMunicipality = '';
+
+                    // administrative_area_level_1 (都道府県) と locality (市区町村) を探す
+                    for (const component of addressComponents) {
+                        if (component.types.includes('administrative_area_level_1')) {
+                            newPrefecture = component.long_name;
+                        }
+                        if (component.types.includes('locality')) {
+                            newMunicipality = component.long_name;
+                        }
+                        // 'locality' がない場合 (例: 政令指定都市の区)、'administrative_area_level_2' を使う
+                        if (!newMunicipality && component.types.includes('administrative_area_level_2')) {
+                             newMunicipality = component.long_name;
+                        }
+                    }
+
+                    const newFullMunicipality = newPrefecture + newMunicipality;
+
+                    // 初回実行時または市区町村が変わった場合
+                    if (newFullMunicipality && newFullMunicipality !== currentMunicipality) {
+                        if (currentMunicipality !== '') { // 初回はメッセージを表示しない
+                            const messageTemplate = uiStrings[currentLang].municipalityGuidance || '{municipality} を移動中です。';
+                            const message = messageTemplate.replace('{municipality}', newFullMunicipality);
+                            showMessage(message, false); // 緑色のメッセージボックス
+                            speak(message, currentLang === 'ja' ? 'ja-JP' : 'en-US');
+                        }
+                        currentMunicipality = newFullMunicipality;
+                    }
+                }
+            } catch (e) {
+                console.error('Geocoding failed:', e);
+            }
+            distanceSinceLastGeocode = 0; // 距離カウンターをリセット
         }
 
         /**
@@ -2124,9 +2341,9 @@
 
             if (tourStartTime > 0) {
                 totalTimeElapsed = totalTimeElapsed + (Date.now() - tourStartTime) / 1000;
-                console.log(formatTime(Date.now()));
-                console.log(formatTime(tourStartTime));
-                console.log(formatTime(totalTimeElapsed));
+                //console.log(formatTime(Date.now()));
+                //console.log(formatTime(tourStartTime));
+                //console.log(formatTime(totalTimeElapsed));
                 tourStartTime = 0;
             }
             toggleTourButton.textContent = uiStrings[currentLang].startTour;
@@ -2161,7 +2378,6 @@
                 speedInput.readOnly = true; // 速度入力を読み取り専用に
                 speedInput.value = 0; // 速度を0にクリア
                 boostButton.style.display = 'block'; // ブーストボタンを表示
-                autoBoostSettings.style.display = 'inline-block'; // オートブースト設定を表示
                 boostButton.title = uiStrings[currentLang].boost;
 
             } catch (error) {
@@ -2188,7 +2404,6 @@
             speedInput.readOnly = false; // 速度入力を編集可能に戻す
             speedInput.value = 0;
             boostButton.style.display = 'none'; // ブーストボタンを非表示
-            autoBoostSettings.style.display = 'none'; // オートブースト設定を非表示
             isBoostActive = false;
             boostButton.classList.remove('active');
             document.getElementById('power-display').textContent = '0 W';
@@ -2504,6 +2719,7 @@
             directionsService = new google.maps.DirectionsService();
             directionsRenderer = new google.maps.DirectionsRenderer({ map: map, suppressMarkers: true });
             elevationService = new google.maps.ElevationService();
+            geocoder = new google.maps.Geocoder();
             streetViewService = new google.maps.StreetViewService();
 
             // SearchBoxで場所が選択されたときのリスナー
@@ -2554,13 +2770,22 @@
                             const setDestButtonText = isOriginSet ? uiStrings[currentLang].setAsDestinationAndSearch : uiStrings[currentLang].setAsDestination;
                             const setDestButtonId = isOriginSet ? 'set-dest-and-search-btn' : 'set-dest-btn';
 
+                            // 出発地が設定されていれば、直線距離を計算して表示
+                            let distanceInfoHtml = '';
+                            if (originLatLng) {
+                                const distanceInMeters = google.maps.geometry.spherical.computeDistanceBetween(originLatLng, place.geometry.location);
+                                const distanceInKm = (distanceInMeters / 1000).toFixed(2);
+                                distanceInfoHtml = `<div style="font-size: 12px; color: #777; margin-top: 8px;">出発地からの直線距離: 約 ${distanceInKm} km</div>`;
+                            }
+
 
                             // InfoWindowに表示するHTMLコンテンツを生成
                             const content = `
                                 <div style="color: #333; font-family: 'Inter', sans-serif; line-height: 1.5;">
                                     <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">${place.name}</div>
                                     ${place.formatted_address ? `<div style="font-size: 13px; color: #555; margin-bottom: 12px;">${place.formatted_address}</div>` : ''}
-                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    ${distanceInfoHtml}
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;">
                                         <button class="infowindow-btn" id="set-origin-btn">${uiStrings[currentLang].setAsOrigin}</button>
                                         <button class="infowindow-btn" id="${setDestButtonId}">${setDestButtonText}</button>
                                         <button class="infowindow-btn" id="set-home-btn" style="background-color: #27ae60;">${uiStrings[currentLang].setAsHome}</button>
@@ -2803,12 +3028,26 @@
             // 初期速度を設定
             speedInput.value = defaultSettings[currentTravelMode].speed;
 
-            // 保存されたオートブーストしきい値を読み込む
+            // --- 保存された設定を読み込む ---
+            const savedVoiceEnabled = localStorage.getItem('isVoiceGuidanceEnabled');
+            if (savedVoiceEnabled !== null) {
+                isVoiceGuidanceEnabled = (savedVoiceEnabled === 'true');
+            }
+            voiceGuidanceToggle.checked = isVoiceGuidanceEnabled;
+
+            const savedGeocodeInterval = localStorage.getItem('geocodeIntervalDistance');
+            if (savedGeocodeInterval !== null) {
+                geocodeIntervalDistance = parseInt(savedGeocodeInterval, 10);
+            }
+            geocodeIntervalInput.value = geocodeIntervalDistance;
+
             const savedThreshold = localStorage.getItem('autoBoostThreshold');
             if (savedThreshold !== null) {
                 autoBoostThreshold = parseInt(savedThreshold, 10);
             }
             autoBoostThresholdInput.value = autoBoostThreshold;
+            // ---------------------------------
+
             setLanguage(currentLang); // ★最初に言語を設定
 
             let GOOGLE_MAPS_API_KEY = localStorage.getItem('streetMoViewApiKey');
