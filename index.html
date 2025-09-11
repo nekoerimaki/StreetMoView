@@ -807,6 +807,7 @@
                 municipalityGuidance: '{municipality} を移動中です。',
                 settings: '設定',
                 voiceGuidance: '音声ガイダンス',
+                departingFrom: '{location} から出発します。',
                 voiceSelect: '声色',
                 geocodeInterval: '住所確認の間隔 (m)',
                 autoBoostSettings: '自動ブースト',
@@ -901,6 +902,7 @@
                 municipalityGuidance: 'Now passing through {municipality}.',
                 settings: 'Settings',
                 voiceGuidance: 'Voice Guidance',
+                departingFrom: 'Departing from {location}.',
                 voiceSelect: 'Voice',
                 geocodeInterval: 'Location Check Interval (m)',
                 autoBoostSettings: 'Auto Boost',
@@ -2124,8 +2126,8 @@
             }
 
             if (distanceSinceLastGeocode >= geocodeIntervalDistance) {
-                checkMunicipalityBoundary(currentPosition);
-                distanceSinceLastGeocode = 0; // こちらをリセットするのが正しい
+                announceLocation(currentPosition, 'moving');
+                distanceSinceLastGeocode = 0;
             }
 
             if (isLogging) {
@@ -2174,48 +2176,51 @@
             // 情報表示とグラフを更新
             updateInfoDisplay();
         }
-
-        /**
-         * 指定された座標の市区町村を確認し、境界を越えていたらガイダンスを再生します。
+         /**
+         * 指定された座標の地名を取得し、状況に応じた音声ガイダンスを再生します。
          * @param {google.maps.LatLng} location - 確認する場所の座標
+         * @param {'departure' | 'moving'} context - 'departure' (出発時) または 'moving' (移動中)
          */
-        async function checkMunicipalityBoundary(location) {
-            if (!geocoder) return;
+        async function announceLocation(location, context) {
+            if (!geocoder || !isVoiceGuidanceEnabled) return;
 
             try {
-                const { results } = await geocoder.geocode({ 
-                    location: location, 
-                    language: currentLang 
-                });
-                // デバッグ用に取得した住所情報をコンソールに出力
-                console.log('Geocoding Result:', results[0]?.formatted_address, results);
+                const { results } = await geocoder.geocode({ location: location, language: currentLang });
+                if (!results || !results[0]) return;
+               // デバッグ用に取得した住所情報をコンソールに出力
+                console.log('Geocoding Result:', results[0]?.formatted_address, results[0]?.address_components);
 
-                if (results && results[0]) {
-                    const addressComponents = results[0].address_components;
-                    let newPrefecture = '';
-                    let newMunicipality = '';
+                const addressComponents = results[0].address_components;
+                let prefecture = '', locality = '', sublocality = '';
 
-                    // administrative_area_level_1 (都道府県) と locality (市区町村) を探す
-                    for (const component of addressComponents) {
-                        if (component.types.includes('administrative_area_level_1')) {
-                            newPrefecture = component.long_name;
-                        }
-                        if (component.types.includes('locality')) {
-                            newMunicipality = component.long_name;
-                        }
-                        // 'locality' がない場合 (例: 政令指定都市の区)、'administrative_area_level_2' を使う
-                        if (!newMunicipality && component.types.includes('administrative_area_level_2')) {
-                             newMunicipality = component.long_name;
-                        }
+                for (const component of addressComponents) {
+                    if (component.types.includes('administrative_area_level_1')) {
+                        prefecture = component.long_name;
                     }
+                    if (locality === '' && component.types.includes('locality')) {
+                        locality = component.long_name;
+                    }
+                    if (locality === '' && component.types.includes('administrative_area_level_2')) {
+                        locality = component.long_name;
+                    }
+                    if (sublocality === '' && component.types.includes('sublocality_level_2')) {
+                        sublocality = component.long_name;
+                    }
+                }
+                const locationName = locality + sublocality;
+                if (!locationName) return; // アナウンスに必要な地名がなければ終了
 
-                    const newFullMunicipality = newPrefecture + newMunicipality;
+                if (context === 'departure') {
+                    const message = (uiStrings[currentLang].departingFrom || '{location} から出発します。').replace('{location}', locationName);
+                    speak(message, currentLang === 'ja' ? 'ja-JP' : 'en-US');
+                } else if (context === 'moving') {
+                    // 「町」レベルの地名が取得できた場合のみ比較・アナウンス
+                    const newFullMunicipality = sublocality ? (prefecture + locality + sublocality) : '';
 
-                    // 初回実行時または市区町村が変わった場合
                     if (newFullMunicipality && newFullMunicipality !== currentMunicipality) {
                         if (currentMunicipality !== '') { // 初回はメッセージを表示しない
                             const messageTemplate = uiStrings[currentLang].municipalityGuidance || '{municipality} を移動中です。';
-                            const message = messageTemplate.replace('{municipality}', newFullMunicipality);
+                            const message = messageTemplate.replace('{municipality}', locationName);
                             showMessage(message, false); // 緑色のメッセージボックス
                             speak(message, currentLang === 'ja' ? 'ja-JP' : 'en-US');
                         }
@@ -2223,11 +2228,9 @@
                     }
                 }
             } catch (e) {
-                console.error('Geocoding failed:', e);
+                console.error(`Geocoding failed during location announcement ('${context}'):`, e);
             }
-            distanceSinceLastGeocode = 0; // 距離カウンターをリセット
         }
-
         /**
          * 標高グラフのクリックイベントを処理します。
          * @param {MouseEvent} event - クリックイベント
@@ -2324,6 +2327,11 @@
             distanceSinceLastSvUpdate = 0;
 
             map.setZoom(17);
+
+            // 出発地の地名を取得してアナウンス
+            if (routePoints.length > 0) {
+                announceLocation(routePoints[currentPointIndex], 'departure');
+            }
 
             physicsIntervalId = setInterval(updatePhysics, PHYSICS_INTERVAL_MS);
         }
