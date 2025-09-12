@@ -569,7 +569,6 @@
                     <div class="dropdown-content" id="route-settings-dropdown">                        
                         <input type="text" id="origin-input" placeholder="出発地: 例. 東京駅" data-i18n-placeholder="originPlaceholder">
                         <input type="text" id="destination-input" placeholder="目的地: 例. 渋谷スクランブル交差点" data-i18n-placeholder="destinationPlaceholder">
-                        <button id="dest-to-origin-button" data-i18n="destToOrigin">目的地を出発地に</button>
                         <div class="mode-switcher">
                             <button id="driving-mode-btn" data-mode="DRIVING" data-i18n="driving">自動車</button>
                             <button id="bicycling-mode-btn" data-mode="BICYCLING" class="active" data-i18n="bicycling">自転車</button>
@@ -726,7 +725,6 @@
                 routeSettings: '経路設定',
                 originPlaceholder: '出発地: 例. 東京駅',
                 destinationPlaceholder: '目的地: 例. 渋谷スクランブル交差点',
-                destToOrigin: '目的地を出発地に',
                 driving: '自動車',                
                 bicycling: '自転車',
                 walking: '徒歩',
@@ -798,10 +796,11 @@
                 fullscreen: 'フルスクリーン',
                 exitFullscreen: 'フルスクリーン解除',
                 fullscreenError: 'フルスクリーンモードへの移行に失敗しました: ',
-                setAsOrigin: '出発地に設定',
-                setAsDestinationAndSearch: '目的地にして経路検索',
+                setAsOrigin: 'ここへ移動',
+                setAsDestinationAndSearch: 'ここへの経路を検索',
                 setAsDestination: '目的地に設定',
                 setAsHome: 'ホームに設定',
+                arrivedAt: '{location} に到着しました。おつかれさまでした。',
                 homeSet: 'ホーム地点を設定しました。次回起動時にこの場所から開始します。',
                 boost: 'ブースト',
                 municipalityGuidance: '{municipality} を移動中です。',
@@ -821,7 +820,6 @@
                 routeSettings: 'Route Settings',
                 originPlaceholder: 'Origin: e.g., Tokyo Station',
                 destinationPlaceholder: 'Destination: e.g., Shibuya Crossing',
-                destToOrigin: 'Destination to Origin',
                 driving: 'Driving',
                 bicycling: 'Bicycling',
                 walking: 'Walking',
@@ -891,12 +889,13 @@
                 powerDetectedStart: 'Power detected. Starting the tour.',
                 jumpDisabledDuringTour: 'Cannot jump during an active tour.',
                 fullscreen: 'Fullscreen',
-                exitFullscreen: 'Exit Fullscreen',
+                exitFullscreen: 'Jump Here',
                 fullscreenError: 'Error attempting to enable full-screen mode: ',
                 setAsOrigin: 'Set as Origin',
-                setAsDestinationAndSearch: 'Set as Dest & Search',
+                setAsDestinationAndSearch: 'Route to here',
                 setAsDestination: 'Set as Destination',
                 setAsHome: 'Set as Home',
+                arrivedAt: 'Arrived at {location}. Well done!',
                 homeSet: 'Home location set. The app will start here next time.',
                 boost: 'Boost',
                 municipalityGuidance: 'Now passing through {municipality}.',
@@ -1377,7 +1376,6 @@
         const speedInput = document.getElementById('speed-input');
         const travelModeButtons = document.querySelectorAll('.mode-switcher button');
         let fullscreenButton;        let currentTravelMode = 'BICYCLING';
-        const destToOriginButton = document.getElementById('dest-to-origin-button');
 
         const defaultSettings = {
             'DRIVING': { speed: 40, interval: 5 },
@@ -1864,6 +1862,9 @@
             }
 
             showMessage(uiStrings[currentLang].routeFound, false);
+            // 経路の開始地点を出発地として設定する
+            setOriginToGeocodedLocation(firstPoint);
+
             updateInfoDisplay();
             toggleTourButton.disabled = false;
 
@@ -2105,6 +2106,7 @@
                 }
                 updateInfoDisplay();
                 stopTour();
+                announceLocation(routePoints[currentPointIndex], 'arrival');
                 showMessage(uiStrings[currentLang].destinationReached, false);
                 return;
             }
@@ -2173,13 +2175,16 @@
             // ストリートビューを即時更新
             updateStreetView();
 
+            // ジャンプした地点を出発地として設定
+            setOriginToGeocodedLocation(newPosition);
+
             // 情報表示とグラフを更新
             updateInfoDisplay();
         }
          /**
          * 指定された座標の地名を取得し、状況に応じた音声ガイダンスを再生します。
          * @param {google.maps.LatLng} location - 確認する場所の座標
-         * @param {'departure' | 'moving'} context - 'departure' (出発時) または 'moving' (移動中)
+         * @param {'departure' | 'moving' | 'arrival'} context - 'departure' (出発時), 'moving' (移動中), 'arrival' (到着時)
          */
         async function announceLocation(location, context) {
             if (!geocoder || !isVoiceGuidanceEnabled) return;
@@ -2226,6 +2231,9 @@
                         }
                         currentMunicipality = newFullMunicipality;
                     }
+                } else if (context === 'arrival') {
+                    const message = (uiStrings[currentLang].arrivedAt || '{location} に到着しました。おつかれさまでした。').replace('{location}', locationName);
+                    speak(message, currentLang === 'ja' ? 'ja-JP' : 'en-US');
                 }
             } catch (e) {
                 console.error(`Geocoding failed during location announcement ('${context}'):`, e);
@@ -2356,6 +2364,11 @@
             }
             toggleTourButton.textContent = uiStrings[currentLang].startTour;
             updateInfoDisplay(); // UIとグラフの状態を更新
+
+            // ツアー停止地点を次の出発地として設定
+            if (currentLocationMarker) {
+                setOriginToGeocodedLocation(currentLocationMarker.getPosition());
+            }
         }
 
         async function connectToBleDevice() {
@@ -2663,7 +2676,7 @@
             // ストリートビューの向きを調整（利用可能な場合）
             streetViewService.getPanorama({ location: location, radius: 50 })
                 .then(({ data }) => {
-                    if (data && data.links && data.links.length > 0) {
+                    if (data && data.links && data.links.length > 0 && data.links[0].pano) {
                         // 最も近い道路の方向に向ける
                         const heading = google.maps.geometry.spherical.computeHeading(location, data.links[0].pano);
                         panorama.setPov({ heading: heading, pitch: 0, zoom: 1 });
@@ -2674,24 +2687,60 @@
                 .catch(e => console.error("Could not set POV for jumped location:", e));
         }
 
-        function initMap() {
-            // localStorageからホーム地点を読み込む
-            let initialLocation = { lat: 35.681236, lng: 139.767125 }; // デフォルト: 東京駅
-            const savedHome = localStorage.getItem('streetMoViewHomeLocation');
-            if (savedHome) {
-                try {
-                    const homeCoords = JSON.parse(savedHome);
-                    // 緯度と経度が数値であることを確認
-                    if (homeCoords && typeof homeCoords.lat === 'number' && typeof homeCoords.lng === 'number') {
-                        initialLocation = homeCoords;
-                    }
-                } catch (e) {
-                    console.error("Failed to parse home location from localStorage", e);
-                    // パースに失敗した場合は古いデータを削除
-                    localStorage.removeItem('streetMoViewHomeLocation');
+        /**
+         * formatted_addressから国名と郵便番号を除去して整形します。
+         * @param {string} formattedAddress - Google Geocoding APIから返されるformatted_address
+         * @param {Array<Object>} addressComponents - Google Geocoding APIから返されるaddress_components
+         * @returns {string} - 整形された住所文字列
+         */
+        function formatAddress(formattedAddress, addressComponents) {
+            // addressComponentsがなければ、元のformattedAddressをそのまま返す
+            if (!addressComponents) return formattedAddress || '';
+
+            // 日本語環境を優先し、住所を構成する要素を定義
+            const desiredTypes = [
+                'administrative_area_level_1', // 都道府県
+                'locality',                      // 市区町村
+                'sublocality_level_1',           // 区 (例: 東京都千代田区)
+                'sublocality_level_2',           // 〇〇町
+                'sublocality_level_3',           // 〇〇丁目
+                'sublocality_level_4'            // 番地など
+            ];
+
+            const addressParts = [];
+            for (const type of desiredTypes) {
+                const component = addressComponents.find(c => c.types.includes(type));
+                if (component && !addressParts.includes(component.long_name)) {
+                    addressParts.push(component.long_name);
                 }
             }
 
+            // 連結した結果が空なら、元のformattedAddressを返す
+            return addressParts.length > 0 ? addressParts.join('') : formattedAddress;
+        }
+
+        /**
+         * 指定された座標を逆ジオコーディングし、結果を分析して最適な地名を出発地として設定します。
+         * 施設名があればそれを優先し、なければ住所を設定します。
+         * @param {google.maps.LatLng} location - 出発地として設定する座標
+         */
+        async function setOriginToGeocodedLocation(location) {
+            if (!location) return;
+
+            originLatLng = location;
+
+            try {
+                const { results } = await geocoder.geocode({ location: location, language: currentLang });
+                if (results && results.length > 0) {
+                    // 最初の結果の住所を整形して使用する
+                    originInput.value = formatAddress(results[0].formatted_address, results[0].address_components);
+                }
+            } catch (e) {
+                console.error("Geocoding failed for new origin:", e);
+            }
+        }
+
+        async function initMap() {
             map = new google.maps.Map(document.getElementById('map'), {
                 center: initialLocation,
                 zoom: 12,
@@ -2702,6 +2751,30 @@
                     position: google.maps.ControlPosition.LEFT_BOTTOM // 新しい位置を指定
                 }
             });
+            
+            // 以下の初期化はmapオブジェクトが生成された後に行う
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer({ map: map, suppressMarkers: true });
+            elevationService = new google.maps.ElevationService();
+            geocoder = new google.maps.Geocoder();
+            streetViewService = new google.maps.StreetViewService();
+
+            // localStorageからホーム地点を読み込み、設定する
+            const savedHome = localStorage.getItem('streetMoViewHomeLocation');
+            if (savedHome) {
+                try {
+                    const homeCoords = JSON.parse(savedHome);
+                    if (homeCoords && typeof homeCoords.lat === 'number' && typeof homeCoords.lng === 'number') {
+                        initialLocation = homeCoords;
+                        map.setCenter(initialLocation);
+                        // 新しい関数を使って出発地を設定
+                        await setOriginToGeocodedLocation(new google.maps.LatLng(homeCoords.lat, homeCoords.lng));
+                    }
+                } catch (e) {
+                    console.error("Failed to parse or geocode home location from localStorage", e);
+                    localStorage.removeItem('streetMoViewHomeLocation');
+                }
+            }
 
             // 地図上に検索ボックスを作成して配置
             const searchInput = document.createElement('input');
@@ -2723,12 +2796,6 @@
             });
 
             map.setStreetView(panorama);
-
-            directionsService = new google.maps.DirectionsService();
-            directionsRenderer = new google.maps.DirectionsRenderer({ map: map, suppressMarkers: true });
-            elevationService = new google.maps.ElevationService();
-            geocoder = new google.maps.Geocoder();
-            streetViewService = new google.maps.StreetViewService();
 
             // SearchBoxで場所が選択されたときのリスナー
             streetViewCoverageLayer = new google.maps.StreetViewCoverageLayer();
@@ -2783,7 +2850,7 @@
                             if (originLatLng) {
                                 const distanceInMeters = google.maps.geometry.spherical.computeDistanceBetween(originLatLng, place.geometry.location);
                                 const distanceInKm = (distanceInMeters / 1000).toFixed(2);
-                                distanceInfoHtml = `<div style="font-size: 12px; color: #777; margin-top: 8px;">出発地からの直線距離: 約 ${distanceInKm} km</div>`;
+                                distanceInfoHtml = `<div style="font-size: 12px; color: #777; margin-top: 8px;">現在地からの直線距離: 約 ${distanceInKm} km</div>`;
                             }
 
 
@@ -2814,9 +2881,19 @@
             // InfoWindow内のボタンにイベントリスナーを設定
             infoWindow.addListener('domready', () => {
                 document.getElementById('set-origin-btn')?.addEventListener('click', () => {
-                    if (selectedPlace) {
-                        originInput.value = selectedPlace.name || selectedPlace.formatted_address;
+                    if (selectedPlace && selectedPlace.geometry && selectedPlace.geometry.location) {
+                        // POIクリック時は、まず場所の名前(place.name)を優先して使う
+                        // これにより「東京駅」のような短い名前が表示される
+                        const displayName = selectedPlace.name || selectedPlace.formatted_address;
+                        if (displayName) {
+                            originInput.value = displayName;
+                        } else {
+                            // 名前がない場合は逆ジオコーディングで住所を取得
+                            setOriginToGeocodedLocation(selectedPlace.geometry.location);
+                        }
+
                         originLatLng = selectedPlace.geometry.location;
+                        jumpToPlace(selectedPlace);
                         infoWindow.close();
                     }
                 });
@@ -2871,13 +2948,6 @@
             routeButton.addEventListener('click', calculateAndDisplayRoute);
             toggleTourButton.addEventListener('click', toggleTour);
             bleConnectButton.addEventListener('click', connectToBleDevice);
-            destToOriginButton.addEventListener('click', () => {
-                originInput.value = destinationInput.value;
-                destinationInput.value = '';
-                originLatLng = destinationLatLng;
-                destinationLatLng = null;
-                destinationInput.focus();
-            });
             boostButton.addEventListener('click', () => { /* イベントリスナーは既に設定済み */ });
             logToggleButton.addEventListener('click', toggleLogging);
             hrConnectButton.addEventListener('click', connectToHrDevice);
@@ -3027,6 +3097,19 @@
         }
 
         let GOOGLE_MAPS_API_KEY = localStorage.getItem('streetMoViewApiKey');
+        let initialLocation = { lat: 35.681236, lng: 139.767125 }; // デフォルト: 東京駅
+
+        // APIキーを読み込む前に、まずlocalStorageからホーム位置を読み込んでおく
+        // これにより、APIキー入力プロンプトが表示される前に地図の中心位置が決まる
+        const savedHomeBeforeApi = localStorage.getItem('streetMoViewHomeLocation');
+        if (savedHomeBeforeApi) {
+            try {
+                const homeCoords = JSON.parse(savedHomeBeforeApi);
+                if (homeCoords && typeof homeCoords.lat === 'number' && typeof homeCoords.lng === 'number') {
+                    initialLocation = homeCoords;
+                }
+            } catch (e) { /* パース失敗時はデフォルト値を使用 */ }
+        }
 
         window.addEventListener('DOMContentLoaded', () => {
             fullscreenButton = document.getElementById('fullscreen-button');
