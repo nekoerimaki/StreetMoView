@@ -570,9 +570,10 @@
                         <input type="text" id="origin-input" placeholder="出発地: 例. 東京駅" data-i18n-placeholder="originPlaceholder">
                         <input type="text" id="destination-input" placeholder="目的地: 例. 渋谷スクランブル交差点" data-i18n-placeholder="destinationPlaceholder">
                         <div class="mode-switcher">
-                            <button id="driving-mode-btn" data-mode="DRIVING" data-i18n="driving">自動車</button>
+                            <button id="driving-mode-btn" data-mode="DRIVING" data-i18n="driving">自動車</button>                            
                             <button id="bicycling-mode-btn" data-mode="BICYCLING" class="active" data-i18n="bicycling">自転車</button>
-                            <button id="walking-mode-btn" data-mode="WALKING" data-i18n="walking">徒歩</button>
+                            <button id="bicycling-road-mode-btn" data-mode="BICYCLING_ROAD" data-i18n="bicycling_road">自転車(車道)</button>
+                            <button id="walking-mode-btn" data-mode="WALKING" data-i18n="walking">徒歩</button>                            
                         </div>
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                             <label for="interval-input" data-i18n="interpolationInterval" style="white-space: nowrap;">補間間隔 (m):</label>
@@ -656,6 +657,10 @@
                 <span class="info-value" id="time-elapsed">00:00:00</span>
             </div>
             <div class="info-item">
+                <span class="info-label" data-i18n="actualSpeed">移動速度</span>
+                <span class="info-value" id="actual-speed">0.0 km/h</span>
+            </div>
+            <div class="info-item">
                 <span class="info-label" data-i18n="timeRemaining">残り時間</span>
                 <span class="info-value" id="time-remaining">00:00:00</span>
             </div>
@@ -726,6 +731,7 @@
                 originPlaceholder: '出発地: 例. 東京駅',
                 destinationPlaceholder: '目的地: 例. 渋谷スクランブル交差点',
                 driving: '自動車',                
+                bicycling_road: '自転車(車道)',
                 bicycling: '自転車',
                 walking: '徒歩',
                 interpolationInterval: '補間間隔 (m):',
@@ -744,6 +750,7 @@
                 totalDist: '経路全体',
                 currentPos: '現在位置',
                 timeElapsed: '移動時間',
+                actualSpeed: '移動速度',
                 timeRemaining: '残り時間',
                 elevation: '標高',
                 gradient: '勾配',
@@ -821,6 +828,7 @@
                 originPlaceholder: 'Origin: e.g., Tokyo Station',
                 destinationPlaceholder: 'Destination: e.g., Shibuya Crossing',
                 driving: 'Driving',
+                bicycling_road: 'Bicycling (Road)',
                 bicycling: 'Bicycling',
                 walking: 'Walking',
                 interpolationInterval: 'Interval (m):',
@@ -839,6 +847,7 @@
                 totalDist: 'Total Distance',
                 currentPos: 'Current Position',
                 timeElapsed: 'Time Elapsed',
+                actualSpeed: 'Actual Speed',
                 timeRemaining: 'Time Remaining',
                 elevation: 'Elevation',
                 gradient: 'Gradient',
@@ -1214,7 +1223,8 @@
             const distanceTraveledKm = (distanceTraveled / 1000).toFixed(2);
             const timeElapsed = totalTimeElapsed + (tourStartTime > 0 ? (Date.now() - tourStartTime) / 1000 : 0);
 
-            const remainingDistance = Math.max(0, totalDistance - currentPositionDistance);            const speedKmH = currentSpeedMps * 3.6;
+            const remainingDistance = Math.max(0, totalDistance - currentPositionDistance);
+            const speedKmH = actualSpeedKmh;
             let timeRemaining = 0;
             if (speedKmH > 0) {
                 timeRemaining = (remainingDistance / 1000) / speedKmH * 3600;
@@ -1225,6 +1235,7 @@
             document.getElementById('dist-traveled').textContent = `${distanceTraveledKm} km`;
             document.getElementById('time-elapsed').textContent = formatTime(timeElapsed);
             document.getElementById('time-remaining').textContent = formatTime(timeRemaining);
+            document.getElementById('actual-speed').textContent = `${actualSpeedKmh.toFixed(1)} km/h`;
 
             if (routeElevations.length > 0 && currentPointIndex < routeElevations.length && cumulativeDistances.length > currentPointIndex) {
                 const currentElevation = routeElevations[currentPointIndex];
@@ -1302,7 +1313,6 @@
         let directionOffset = 0;
         let totalTimeElapsed = 0;
         let currentGradient = 0;
-        let currentTourSpeedKmH = 0;
         let isLogging = false;
         let logData = [];
         let logStartDistance = 0; // ログ開始時の走行距離
@@ -1314,7 +1324,8 @@
         let isBoostActive = false;
         const BOOST_FACTOR = 1.5;
         let autoBoostThreshold = 10; // オートブーストのしきい値（%）
-        let currentSpeedMps = 0; // 現在の速度 (m/s)
+        let manualSpeedKmh = 0; // 手動入力の速度 (km/h)
+        let actualSpeedKmh = 0; // 実際の移動速度 (km/h)
 
         let placesService, infoWindow, selectedPlace = null;
         let geocoder;
@@ -1379,7 +1390,8 @@
 
         const defaultSettings = {
             'DRIVING': { speed: 40, interval: 5 },
-            'BICYCLING': { speed: 15, interval: 3 },
+            'BICYCLING': { speed: 15, interval: 3 }, // Google Maps標準の自転車モード
+            'BICYCLING_ROAD': { speed: 15, interval: 3 }, // 高速を避けた自動車モード
             'WALKING': { speed: 4, interval: 1 }
         };
 
@@ -1527,12 +1539,17 @@
 
         // ドロップダウンの表示/非表示を切り替える
         routeSettingsButton.addEventListener('click', (event) => {
-            if (isTourRunning || isLogging) {
+            // ツアー実行中は経路設定を変更できない
+            if (isTourRunning) {
                 showMessage(uiStrings[currentLang].routeSettingsDisabled, true);
                 return;
             }
             event.stopPropagation();
             routeSettingsDropdown.classList.toggle('show');
+
+            // ログ記録中は出発地を編集不可にする
+            // メニューが開かれるたびに状態をチェックして設定する
+            originInput.disabled = isLogging;
         });
 
         // ドロップダウン外をクリックしたら閉じる
@@ -1654,7 +1671,7 @@
             currentPointIndex = 0;
             // パワーソースに接続されていない場合のみ、現在の移動モードのデフォルト速度を再設定
             if (!bleDevice || !bleDevice.gatt.connected) {
-                speedInput.value = defaultSettings[currentTravelMode].speed;
+                setTravelMode(currentTravelMode); // これでspeedInputとmanualSpeedKmhが更新される
             }
             document.getElementById('elevation').textContent = `N/A`;
             document.getElementById('gradient').textContent = `N/A`;
@@ -1892,14 +1909,24 @@
                 return;
             }
 
-            const origin = originLatLng || originValue;
-            const destination = destinationLatLng || destinationValue;
+            // BICYCLING_ROADはAPIリクエスト時にはDRIVINGとして扱う
+            const apiTravelMode = currentTravelMode === 'BICYCLING_ROAD' 
+                ? google.maps.TravelMode.DRIVING 
+                : google.maps.TravelMode[currentTravelMode];
 
-            directionsService.route({
-                origin: origin,
-                destination: destination,
-                travelMode: google.maps.TravelMode[currentTravelMode],
-            }).then((response) => {
+            const request = {
+                origin: originLatLng || originValue,
+                destination: destinationLatLng || destinationValue,
+                travelMode: apiTravelMode
+            };
+
+            // 「自転車(車道)」モードの場合、高速道路と有料道路を避ける
+            if (currentTravelMode === 'BICYCLING_ROAD') {
+                request.avoidHighways = true;
+                request.avoidTolls = true;
+            }
+
+            directionsService.route(request).then((response) => {
                 if (response.status === 'OK') {                    
                     // 経路の色を赤に変更 (既に適用済みですが、確認のため記載)
                     directionsRenderer.setOptions({
@@ -2038,17 +2065,16 @@
         }
 
         function updatePhysics() {
-            if (!isTourRunning) return; 
-
             const now = Date.now();
             const deltaTime = (now - lastPhysicsUpdateTime) / 1000; // 秒単位
             lastPhysicsUpdateTime = now;
+            let currentSpeedMps = actualSpeedKmh / 3.6;
 
             // パワーソースが接続されている場合は物理モデルに基づいて速度を更新
             if (bleDevice && bleDevice.gatt.connected) {
                 const C = PHYSICS_CONSTANTS;
 
-                // 1. 抵抗力の計算
+                // 1. 抵抗力の計算 (ツアー実行中のみ物理モデルを適用)
                 const gradientAngle = Math.atan(currentGradient / 100);
                 const rollingResistanceForce = C.CRR * C.TOTAL_MASS * C.G * Math.cos(gradientAngle);
                 const airResistanceForce = 0.5 * C.CDA * C.RHO * Math.pow(currentSpeedMps, 2);
@@ -2056,7 +2082,7 @@
                 const totalResistanceForce = rollingResistanceForce + airResistanceForce + gradientResistanceForce;
 
                 // 2. 推進力の計算
-                // 速度が非常に遅い場合の発散を防ぐ
+                // 速度が非常に遅い場合の発散を防ぐ (ツアー実行中のみ)
                 const effectiveSpeed = Math.max(currentSpeedMps, C.MIN_SPEED_FOR_FORCE_CALC_MPS);
                 const boostedPower = isBoostActive ? currentPower * BOOST_FACTOR : currentPower;
                 const propulsiveForce = (boostedPower * C.DRIVETRAIN_EFFICIENCY) / effectiveSpeed;
@@ -2071,68 +2097,71 @@
                     boostButton.classList.toggle('active', isBoostActive);
                 }
                 // 3. 加速度と新しい速度の計算
-                const netForce = propulsiveForce - totalResistanceForce;
-                const acceleration = netForce / C.TOTAL_MASS;
-                currentSpeedMps += acceleration * deltaTime;
-                currentSpeedMps = Math.max(0, currentSpeedMps); // 速度が負にならないように
+                if (isTourRunning) {
+                    const netForce = propulsiveForce - totalResistanceForce;
+                    const acceleration = netForce / C.TOTAL_MASS;
+                    currentSpeedMps += acceleration * deltaTime;
+                    currentSpeedMps = Math.max(0, currentSpeedMps); // 速度が負にならないように
+                }
 
-                // UIの速度表示を更新
-                speedInput.value = (currentSpeedMps * 3.6).toFixed(1);
+                // 実際の移動速度を更新
+                actualSpeedKmh = currentSpeedMps * 3.6;
 
-                // ツアー停止条件のチェック
-                if (currentSpeedMps * 3.6 < C.STOPPING_SPEED_KMH && currentPower <= 0) {
+            } else {
+                // パワーソースが接続されていない場合は、手動入力された速度(manualSpeedKmh)を実際の速度(actualSpeedKmh)に反映する
+                actualSpeedKmh = manualSpeedKmh;
+                currentSpeedMps = actualSpeedKmh / 3.6;
+            }
+
+            // 現在の位置を計算（ログ記録のために isTourRunning の外で定義）
+            const currentPosition = (routePoints.length > 0) ? routePoints[currentPointIndex] : null;
+
+            // ツアー実行中のみ位置やUIを更新する
+            if (isTourRunning) {
+                const deltaDistance = currentSpeedMps * deltaTime;
+                currentPositionDistance += deltaDistance;
+                distanceTraveled += deltaDistance; // 実際に走行した距離も加算
+                distanceSinceLastGeocode += deltaDistance;
+                distanceSinceLastSvUpdate += deltaDistance;
+
+                if (currentPositionDistance >= totalDistance) {
+                    currentPositionDistance = totalDistance;
+                    currentPointIndex = routePoints.length - 1;
+                    if (currentLocationMarker && routePoints.length > 0) {
+                        currentLocationMarker.setPosition(routePoints[currentPointIndex]);
+                    }
+                    updateInfoDisplay();
                     stopTour();
-                    showMessage(uiStrings[currentLang].powerZeroStop, false); // エラーではなく情報として表示
+                    announceLocation(routePoints[currentPointIndex], 'arrival');
+                    showMessage(uiStrings[currentLang].destinationReached, false);
                     return;
                 }
 
-            } else {
-                // パワーソースが接続されていない場合は、手動入力された速度を使用
-                const speedKmh = parseFloat(speedInput.value) || 0;
-                currentSpeedMps = speedKmh / 3.6;
-            }
-
-            const deltaDistance = currentSpeedMps * deltaTime;
-            currentPositionDistance += deltaDistance;
-            distanceTraveled += deltaDistance; // 実際に走行した距離も加算
-            distanceSinceLastGeocode += deltaDistance;
-            distanceSinceLastSvUpdate += deltaDistance;
-
-            if (currentPositionDistance >= totalDistance) {
-                currentPositionDistance = totalDistance;
-                currentPointIndex = routePoints.length - 1;
-                if (currentLocationMarker && routePoints.length > 0) {
-                    currentLocationMarker.setPosition(routePoints[currentPointIndex]);
+                // 現在のインデックスを更新
+                while (currentPointIndex < cumulativeDistances.length - 1 && currentPositionDistance > cumulativeDistances[currentPointIndex + 1]) {
+                    currentPointIndex++;
                 }
+
+                currentLocationMarker.setPosition(currentPosition);
+                map.panTo(currentPosition);
+
                 updateInfoDisplay();
-                stopTour();
-                announceLocation(routePoints[currentPointIndex], 'arrival');
-                showMessage(uiStrings[currentLang].destinationReached, false);
-                return;
-            }
 
-            // 現在のインデックスを更新
-            while (currentPointIndex < cumulativeDistances.length - 1 && currentPositionDistance > cumulativeDistances[currentPointIndex + 1]) {
-                currentPointIndex++;
-            }
+                if (distanceSinceLastSvUpdate >= STREETVIEW_UPDATE_DISTANCE) {
+                    updateStreetView();
+                    distanceSinceLastSvUpdate = 0;
+                }
 
-            const currentPosition = routePoints[currentPointIndex];
-            currentLocationMarker.setPosition(currentPosition);
-            map.panTo(currentPosition);
-
-            updateInfoDisplay();
-
-            if (distanceSinceLastSvUpdate >= STREETVIEW_UPDATE_DISTANCE) {
-                updateStreetView();
-                distanceSinceLastSvUpdate = 0;
-            }
-
-            if (distanceSinceLastGeocode >= geocodeIntervalDistance) {
-                announceLocation(currentPosition, 'moving');
-                distanceSinceLastGeocode = 0;
+                if (distanceSinceLastGeocode >= geocodeIntervalDistance) {
+                    announceLocation(currentPosition, 'moving');
+                    distanceSinceLastGeocode = 0;
+                }
             }
 
             if (isLogging) {
+                // ツアーが停止している場合、ログに記録する速度は0にする
+                const loggedSpeedKmh = isTourRunning ? actualSpeedKmh : 0;
+
                 const currentElevation = (routeElevations.length > currentPointIndex) ? routeElevations[currentPointIndex] : 0;
                 logData.push({
                     timestamp: new Date().toISOString(),
@@ -2142,7 +2171,7 @@
                     cadence: currentCadence,
                     heartRate: currentHeartRate,
                     distance: distanceTraveled, // ログには実際に走行した総距離を記録
-                    speed: currentSpeedMps * 3.6 // km/hで記録
+                    speed: loggedSpeedKmh // km/hで記録 (actualSpeedKmh)
                 });
             }
         }
@@ -2320,12 +2349,13 @@
                 if (isNaN(speed) || speed <= 0) {
                     showMessage(uiStrings[currentLang].invalidSpeed, true);
                     return;
-                }
-                currentSpeedMps = speed / 3.6;
+                }                
+                actualSpeedKmh = manualSpeedKmh;
             } else {
-                currentSpeedMps = 0; // パワーソース接続時は0からスタート
+                // パワーソース接続時は0からスタート
+                actualSpeedKmh = 0;
             }
-
+            
             // 画面のスリープを防止
             await requestWakeLock();
             isTourRunning = true;
@@ -2350,7 +2380,8 @@
                 physicsIntervalId = null;
             }
             isTourRunning = false;
-            currentSpeedMps = 0;
+            // ログ記録中は物理演算ループが動き続けるため、速度をリセットしない
+            actualSpeedKmh = 0;
 
             // 画面のスリープ防止を解除
             await releaseWakeLock();
@@ -2397,7 +2428,7 @@
                 bleConnectButton.textContent = uiStrings[currentLang].disconnect;
                 bleConnectButton.style.backgroundColor = '#e74c3c';
                 speedInput.readOnly = true; // 速度入力を読み取り専用に
-                speedInput.value = 0; // 速度を0にクリア
+                actualSpeedKmh = 0;
                 boostButton.style.display = 'block'; // ブーストボタンを表示
                 boostButton.title = uiStrings[currentLang].boost;
 
@@ -2423,7 +2454,7 @@
             bleConnectButton.textContent = uiStrings[currentLang].connectPower;
             bleConnectButton.style.backgroundColor = '#3498db';
             speedInput.readOnly = false; // 速度入力を編集可能に戻す
-            speedInput.value = 0;
+            actualSpeedKmh = 0;
             boostButton.style.display = 'none'; // ブーストボタンを非表示
             isBoostActive = false;
             boostButton.classList.remove('active');
@@ -2504,19 +2535,35 @@
          * ログ記録の開始/終了を切り替えます。
          */
         function toggleLogging() {
-            isLogging = !isLogging;
-            if (isLogging) {
+            if (!isLogging) {
+                // ログ記録を開始
+                isLogging = true;
                 logData = []; // ログを初期化
                 logStartDistance = distanceTraveled; // ログ開始時の走行距離を記録
                 logStartTime = Date.now(); // ログ開始時刻を記録
                 logToggleButton.textContent = uiStrings[currentLang].stopLog;
                 logToggleButton.style.backgroundColor = '#f39c12'; // 記録中を示す色
                 showMessage(uiStrings[currentLang].logStarted, false);
+
+                // 物理演算ループが動いていなければ開始する
+                if (!physicsIntervalId) {
+                    lastPhysicsUpdateTime = Date.now();
+                    physicsIntervalId = setInterval(updatePhysics, PHYSICS_INTERVAL_MS);
+                }
             } else {
+                // ログ記録を終了
+                isLogging = false;
                 logToggleButton.textContent = uiStrings[currentLang].startLog;
                 logToggleButton.style.backgroundColor = '#3498db';
                 showMessage(uiStrings[currentLang].logStopped, false);
-                if (logData.length > 1) { // データが2点以上ないとLapが作れない
+
+                // ツアーも停止していれば、物理演算ループを止める
+                if (!isTourRunning && physicsIntervalId) {
+                    clearInterval(physicsIntervalId);
+                    physicsIntervalId = null;
+                }
+
+                if (logData.length > 1) {
                     if (confirm(uiStrings[currentLang].confirmSaveTcx)) {
                         saveLogAsTcx();
                     }
@@ -2645,8 +2692,9 @@
                 currentPower = power;
                 document.getElementById('power-display').textContent = `${currentPower} W`;
 
-                // ツアーが実行中でなく、パワーが検出されたらツアーを開始
-                if (!isTourRunning && power > 0) {
+                // ツアーが実行中でなく、パワーが検出され、かつ有効な経路が存在する場合にツアーを開始
+                const hasValidRoute = routePoints.length > 0 && currentPositionDistance < totalDistance;
+                if (!isTourRunning && power > 0 && hasValidRoute) {
                     startTour();
                     showMessage(uiStrings[currentLang].powerDetectedStart, false);
                 }
@@ -2853,6 +2901,10 @@
                                 distanceInfoHtml = `<div style="font-size: 12px; color: #777; margin-top: 8px;">現在地からの直線距離: 約 ${distanceInKm} km</div>`;
                             }
 
+                            // ログ記録中でなければ「ここへ移動」ボタンを表示する
+                            const setOriginButtonHtml = !isLogging
+                                ? `<button class="infowindow-btn" id="set-origin-btn">${uiStrings[currentLang].setAsOrigin}</button>`
+                                : '';
 
                             // InfoWindowに表示するHTMLコンテンツを生成
                             const content = `
@@ -2861,7 +2913,7 @@
                                     ${place.formatted_address ? `<div style="font-size: 13px; color: #555; margin-bottom: 12px;">${place.formatted_address}</div>` : ''}
                                     ${distanceInfoHtml}
                                     <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;">
-                                        <button class="infowindow-btn" id="set-origin-btn">${uiStrings[currentLang].setAsOrigin}</button>
+                                        ${setOriginButtonHtml}
                                         <button class="infowindow-btn" id="${setDestButtonId}">${setDestButtonText}</button>
                                         <button class="infowindow-btn" id="set-home-btn" style="background-color: #27ae60;">${uiStrings[currentLang].setAsHome}</button>
                                     </div>
@@ -2982,7 +3034,8 @@
 
             // 手動での速度変更を検知
             speedInput.addEventListener('input', () => {
-                const speed = parseFloat(speedInput.value);
+                manualSpeedKmh = parseFloat(speedInput.value) || 0;
+                if (!isTourRunning && !bleDevice?.gatt.connected) actualSpeedKmh = manualSpeedKmh;
                 // 速度の変更はtourStepループ内で自動的に反映される
             });
 
@@ -3118,6 +3171,7 @@
 
             // 初期速度を設定
             speedInput.value = defaultSettings[currentTravelMode].speed;
+            manualSpeedKmh = defaultSettings[currentTravelMode].speed;
 
             // --- 保存された設定を読み込む ---
             const savedVoiceEnabled = localStorage.getItem('isVoiceGuidanceEnabled');
