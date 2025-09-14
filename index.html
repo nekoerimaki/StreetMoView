@@ -723,7 +723,9 @@
     </div>
     <div id="message-box"></div>
 
-    <script>
+    <script type="module">
+        // VVoxEngineクラスをモジュールからインポート
+        import { VVoxEngine } from './script/VVoxEngine.js';
 
         const uiStrings = {
             ja: {
@@ -1432,9 +1434,11 @@
         // --- 音声合成関連 ---
         let voices = [];
         let isVoiceGuidanceEnabled = true;
+        let vvoxEngine = new VVoxEngine(); // ★ vvoxEngineをここで初期化
 
         function populateVoiceList() {
-            if (typeof speechSynthesis === 'undefined') return;
+            if (!vvoxEngine || !vvoxEngine.isAvailable) {
+            if (typeof speechSynthesis === 'undefined') { return; }
             voices = speechSynthesis.getVoices().filter(voice => voice.lang.startsWith(currentLang));
             voiceSelect.innerHTML = '';
             if (voices.length > 0) {
@@ -1454,11 +1458,7 @@
             } else {
                 voiceSelect.disabled = true;
             }
-        }
-        // ブラウザによっては onvoiceschanged が一度しか呼ばれない、または呼ばれないことがあるため、遅延実行も加える
-        populateVoiceList();
-        if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
-            speechSynthesis.onvoiceschanged = populateVoiceList;
+            }
         }
 
         /**
@@ -1467,7 +1467,12 @@
          * @param {string} lang - 言語コード (e.g., 'ja-JP')
          */
         function speak(text, lang) {
-            if ('speechSynthesis' in window && isVoiceGuidanceEnabled) {
+            // VOICEVOXが利用可能で、話者が選択されている場合はそちらを優先
+            if (vvoxEngine && vvoxEngine.isAvailable && vvoxEngine.speakerId !== null) {
+                if (isVoiceGuidanceEnabled) {
+                    vvoxEngine.speak(text);
+                }
+            } else if ('speechSynthesis' in window && isVoiceGuidanceEnabled) {
                 // 既存の発言があればキャンセル
                 window.speechSynthesis.cancel();
 
@@ -1617,9 +1622,13 @@
         });
 
         voiceSelect.addEventListener('change', () => {
-            const selectedVoiceName = voiceSelect.selectedOptions[0]?.getAttribute('data-name');
-            if (selectedVoiceName) {
-                localStorage.setItem('selectedVoiceName', selectedVoiceName);
+            if (vvoxEngine && vvoxEngine.isAvailable) {
+                const selectedSpeakerId = voiceSelect.value;
+                vvoxEngine.setSpeakerId(selectedSpeakerId);
+                localStorage.setItem('vvoxSpeakerId', selectedSpeakerId);
+            } else {
+                const selectedVoiceName = voiceSelect.selectedOptions[0]?.getAttribute('data-name');
+                if (selectedVoiceName) localStorage.setItem('selectedVoiceName', selectedVoiceName);
             }
         });
 
@@ -2788,6 +2797,9 @@
             }
         }
 
+        // モジュールスコープ内の関数をグローバルに公開して、Google Mapsのコールバックから呼び出せるようにする
+        window.initMap = initMap;
+
         async function initMap() {
             map = new google.maps.Map(document.getElementById('map'), {
                 center: initialLocation,
@@ -2799,7 +2811,39 @@
                     position: google.maps.ControlPosition.LEFT_BOTTOM // 新しい位置を指定
                 }
             });
-            
+
+            // VOICEVOX Engineの初期化を試みる (async/awaitで書き換え)
+            const isVvoxAvailable = await vvoxEngine.initialize();
+            if (isVvoxAvailable) {
+                try {
+                    const speakers = await vvoxEngine.getSpeakers();
+                    voiceSelect.innerHTML = ''; // 既存の選択肢をクリア
+                    speakers.forEach(speaker => {
+                        speaker.styles.forEach(style => {
+                            const option = document.createElement('option');
+                            option.value = style.id;
+                            option.textContent = `${speaker.name} (${style.name})`;
+                            voiceSelect.appendChild(option);
+                        });
+                    });
+                    voiceSelect.disabled = false;
+                    // 保存されたVOICEVOX話者IDを選択
+                    const savedSpeakerId = localStorage.getItem('vvoxSpeakerId');
+                    if (savedSpeakerId) {
+                        voiceSelect.value = savedSpeakerId;
+                        vvoxEngine.setSpeakerId(savedSpeakerId);
+                    }
+                } catch (error) {
+                    console.error("Failed to load VOICEVOX speakers:", error);
+                    populateVoiceList(); // VOICEVOX話者取得失敗時はOS標準に戻す
+                }
+            } else {
+                // VOICEVOXが利用できない場合は、OS標準の音声リストを読み込む
+                populateVoiceList();
+                if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
+                    speechSynthesis.onvoiceschanged = populateVoiceList;
+                }
+            }
             // 以下の初期化はmapオブジェクトが生成された後に行う
             directionsService = new google.maps.DirectionsService();
             directionsRenderer = new google.maps.DirectionsRenderer({ map: map, suppressMarkers: true });
@@ -3225,5 +3269,6 @@
             }
         });
     </script>
+
 </body>
 </html>
