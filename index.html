@@ -577,7 +577,7 @@
                         </div>
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                             <label for="interval-input" data-i18n="interpolationInterval" style="white-space: nowrap;">補間間隔 (m):</label>
-                            <input type="number" id="interval-input" value="3" min="1" max="100">
+                            <input type="number" id="interval-input" value="5" min="1" max="100">
                         </div>
                         <button id="route-button" data-i18n="searchRoute">経路を検索</button>
                         <button id="load-gpx-button" data-i18n="loadGpx">GPXを読み込む</button>
@@ -1170,26 +1170,32 @@
             return correctedPoints;
         }
 
+        //勾配スムージング試作。トンネル補正
         function smoothElevationsByGradient2(pointsData, samplingInterval = 50, maxGradient = 20) {
-            if (pointsData.length < 2) {
+            if (pointsData.length < 3) {
                 return pointsData;
             }
 
             const correctedPoints = JSON.parse(JSON.stringify(pointsData)); // 元のデータを変更しないようにディープコピー
 
-            for (let i = correctedPoints.length - 1; i > 0 ; i--) {
+            for (let i = 0; i < correctedPoints.length - 2; i++) {
                 const currentPoint = correctedPoints[i];
-                const prevPoint = correctedPoints[i - 1];
+                const nextPoint = correctedPoints[i + 1];
 
-                const distanceDiff = currentPoint.distance - prevPoint.distance;
+                const distanceDiff = nextPoint.distance - currentPoint.distance;
                 if (distanceDiff <= 0) continue; // 距離が増えていない場合はスキップ
 
-                const elevationDiff = prevPoint.elevation - currentPoint.elevation;
+                const elevationDiff = nextPoint.elevation - currentPoint.elevation;
                 const gradient = (elevationDiff / distanceDiff) * 100;
 
-                if (gradient > maxGradient) {
+                const nextPoint2 = correctedPoints[i + 2];
+                const distanceDiff2 = nextPoint2.distance - nextPoint.distance;
+                const elevationDiff2 = nextPoint2.elevation - nextPoint.elevation;
+                const gradient2 = (elevationDiff2 / distanceDiff2) * 100;
+
+                if (gradient2 - gradient > maxGradient) {
                     // 勾配がしきい値を超えたら、次のポイントの標高を現在のポイントに合わせる
-                    prevPoint.elevation = currentPoint.elevation;
+                    correctedPoints[i + 2].elevation = correctedPoints[i + 1].elevation;
                 }
             }
             return correctedPoints;
@@ -1728,7 +1734,9 @@
             routeGradients = [];
             totalDistance = 0;
             currentPositionDistance = 0;
-            distanceTraveled = 0; // 走行距離もリセット
+            if (!isLogging) {
+                distanceTraveled = 0; // 走行距離もリセット
+            }
             currentPointIndex = 0;
             // パワーソースに接続されていない場合のみ、現在の移動モードのデフォルト速度を再設定
             if (!bleDevice || !bleDevice.gatt.connected) {
@@ -1818,11 +1826,11 @@
                 // 移動手段に応じてサンプリング間隔と最大勾配を動的に設定
                 const interpolationInterval = parseFloat(intervalInput.value, 10);
                 const samplingIntervalForSmoothing = interpolationInterval * 5;
-                const maxGradient = (currentTravelMode === 'WALKING') ? 100 : 25; // 徒歩は100%、他は25%
+                const maxGradient = (currentTravelMode === 'WALKING') ? 100 : 20; // 徒歩は100%、他は25%
 
                 console.log(`Applying elevation smoothing: interval=${samplingIntervalForSmoothing}m, maxGradient=${maxGradient}%`);
-                sampledPointsData = smoothElevationsByGradient(sampledPointsData, samplingIntervalForSmoothing, maxGradient);
-                //sampledPointsData = smoothElevationsByGradient2(sampledPointsData, samplingIntervalForSmoothing, maxGradient);
+                //スムージング関数呼び出し
+                sampledPointsData = smoothElevationsByGradient2(sampledPointsData, samplingIntervalForSmoothing, maxGradient);
 
                 // 3. 元の経路の各点の標高を計算する
                 routeElevations = new Array(path.length);
