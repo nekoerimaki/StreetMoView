@@ -1122,31 +1122,78 @@
             }
         }
 
-        /**
-         * 標高データのスパイク（異常値）を除去するためにメディアンフィルタを適用します。
-         * これにより、APIから返される稀な外れ値が勾配計算に与える影響を抑制します。
-         * @param {Array<Object>} pointsData - 'elevation'プロパティを持つオブジェクトの配列
-         * @param {number} windowSize - フィルタのウィンドウサイズ（3以上の奇数を推奨）
-         * @returns {Array<Object>} - フィルタリングされた標高データを持つ新しい配列
-         */
-        function applyMedianFilter(pointsData, windowSize) {
-            if (windowSize % 2 === 0 || windowSize < 3 || pointsData.length < windowSize) {
-                return pointsData; // フィルタを適用できない場合は元のデータを返す
-            }
-            const filteredPoints = [];
-            const halfWindow = Math.floor(windowSize / 2);
 
-            for (let i = 0; i < pointsData.length; i++) {
-                const start = Math.max(0, i - halfWindow);
-                const end = Math.min(pointsData.length - 1, i + halfWindow);
-                const windowSlice = pointsData.slice(start, end + 1);
-                const elevations = windowSlice.map(p => p.elevation).sort((a, b) => a - b);
-                const medianElevation = elevations[Math.floor(elevations.length / 2)];
-                filteredPoints.push({ ...pointsData[i], elevation: medianElevation });
+        /**
+         * 標高データの急激な変化を平滑化します。
+         * 一定間隔でサンプリングし、2点間の勾配がしきい値を超える場合、次の点の標高を現在の点の標高に合わせます。
+         * @param {Array<Object>} pointsData - 'distance'と'elevation'プロパティを持つオブジェクトの配列
+         * @param {number} [samplingInterval=50] - 標高をチェックする間隔 (m)
+         * @param {number} [maxGradient=15] - 許容される最大の勾配 (%)
+         * @returns {Array<Object>} - 補正された標高データを持つ新しい配列
+         */
+        function smoothElevationsByGradient(pointsData, samplingInterval = 50, maxGradient = 20) {
+            if (pointsData.length < 2) {
+                return pointsData;
             }
-            return filteredPoints;
+
+            const correctedPoints = JSON.parse(JSON.stringify(pointsData)); // 元のデータを変更しないようにディープコピー
+
+            for (let i = 0; i < correctedPoints.length - 1; i++) {
+                const currentPoint = correctedPoints[i];
+                const nextPoint = correctedPoints[i + 1];
+
+                const distanceDiff = nextPoint.distance - currentPoint.distance;
+                if (distanceDiff <= 0) continue; // 距離が増えていない場合はスキップ
+
+                const elevationDiff = nextPoint.elevation - currentPoint.elevation;
+                const gradient = (elevationDiff / distanceDiff) * 100;
+                if (gradient > maxGradient) {
+                    // 勾配がしきい値を超えたら、次のポイントの標高を現在のポイントに合わせる
+                    correctedPoints[i + 1].elevation = currentPoint.elevation;
+                }
+                else if (i < (correctedPoints.length - 2)) {
+                // 次と、次の次のポイントとの勾配が大きな下り勾配になるときも次のポイントの標高を現在のポイントに合わせる
+                // →トンネル出口のスパイクをなくす為
+                    const nextPoint2 = correctedPoints[i + 2];
+                    const distanceDiff2 = nextPoint2.distance - nextPoint.distance;
+                    const elevationDiff2 = nextPoint2.elevation - nextPoint.elevation;
+                    const gradient2 = (elevationDiff2 / distanceDiff2) * 100;
+                    if (gradient2 < -maxGradient) {
+                        correctedPoints[i + 1].elevation = currentPoint.elevation;
+                    }
+                    else if (gradient > 10 && gradient2 < -10) {
+                        correctedPoints[i + 1].elevation = currentPoint.elevation;
+                    }
+                }
+
+            }
+            return correctedPoints;
         }
 
+        function smoothElevationsByGradient2(pointsData, samplingInterval = 50, maxGradient = 20) {
+            if (pointsData.length < 2) {
+                return pointsData;
+            }
+
+            const correctedPoints = JSON.parse(JSON.stringify(pointsData)); // 元のデータを変更しないようにディープコピー
+
+            for (let i = correctedPoints.length - 1; i > 0 ; i--) {
+                const currentPoint = correctedPoints[i];
+                const prevPoint = correctedPoints[i - 1];
+
+                const distanceDiff = currentPoint.distance - prevPoint.distance;
+                if (distanceDiff <= 0) continue; // 距離が増えていない場合はスキップ
+
+                const elevationDiff = prevPoint.elevation - currentPoint.elevation;
+                const gradient = (elevationDiff / distanceDiff) * 100;
+
+                if (gradient > maxGradient) {
+                    // 勾配がしきい値を超えたら、次のポイントの標高を現在のポイントに合わせる
+                    prevPoint.elevation = currentPoint.elevation;
+                }
+            }
+            return correctedPoints;
+        }
         /**
          * 2つの緯度/経度座標間の距離をメートル単位で計算します。
          * @param {google.maps.LatLng} p1 - 最初の座標
@@ -1393,10 +1440,10 @@
         let fullscreenButton;        let currentTravelMode = 'BICYCLING';
 
         const defaultSettings = {
-            'DRIVING': { speed: 40, interval: 5 },
-            'BICYCLING': { speed: 15, interval: 3 }, // Google Maps標準の自転車モード
-            'BICYCLING_ROAD': { speed: 15, interval: 3 }, // 高速を避けた自動車モード
-            'WALKING': { speed: 4, interval: 1 }
+            'DRIVING': { speed: 50, interval: 10 },
+            'BICYCLING': { speed: 20, interval: 5 }, // Google Maps標準の自転車モード
+            'BICYCLING_ROAD': { speed: 20, interval: 5 }, // 高速を避けた自動車モード
+            'WALKING': { speed: 5, interval: 3 }
         };
 
         /**
@@ -1573,7 +1620,7 @@
          * 巡回モードを設定し、UIを更新します。
          * @param {string} mode - ツアーモード ('DRIVING', 'BICYCLING', 'WALKING')
          */
-        function setTravelMode(mode) {
+        function setTravelMode(mode, keepValue = false) {
             currentTravelMode = mode;
             travelModeButtons.forEach(btn => {
                 if (btn.dataset.mode === mode) {
@@ -1582,8 +1629,11 @@
                     btn.classList.remove('active');
                 }
             });
-            intervalInput.value = defaultSettings[mode].interval;
-            speedInput.value = defaultSettings[mode].speed;
+            if (!keepValue) {
+                intervalInput.value = defaultSettings[mode].interval;
+                speedInput.value = defaultSettings[mode].speed;
+            }
+            
         }
 
         travelModeButtons.forEach(btn => {
@@ -1682,7 +1732,7 @@
             currentPointIndex = 0;
             // パワーソースに接続されていない場合のみ、現在の移動モードのデフォルト速度を再設定
             if (!bleDevice || !bleDevice.gatt.connected) {
-                setTravelMode(currentTravelMode); // これでspeedInputとmanualSpeedKmhが更新される
+                setTravelMode(currentTravelMode, true); // これでspeedInputとmanualSpeedKmhが更新される
             }
             document.getElementById('elevation').textContent = `N/A`;
             document.getElementById('gradient').textContent = `N/A`;
@@ -1764,10 +1814,15 @@
                     data.elevation = allElevationResults[i].elevation;
                 });
 
-                // 標高の異常なスパイクを除去するためにメディアンフィルタを適用
-                // ウィンドウサイズを広げ、2回適用することでより強力にスパイクを除去する
-                sampledPointsData = applyMedianFilter(sampledPointsData, 5);
-                sampledPointsData = applyMedianFilter(sampledPointsData, 5);
+                // 標高の異常なスパイクを除去するために勾配ベースの平滑化を適用
+                // 移動手段に応じてサンプリング間隔と最大勾配を動的に設定
+                const interpolationInterval = parseFloat(intervalInput.value, 10);
+                const samplingIntervalForSmoothing = interpolationInterval * 5;
+                const maxGradient = (currentTravelMode === 'WALKING') ? 100 : 25; // 徒歩は100%、他は25%
+
+                console.log(`Applying elevation smoothing: interval=${samplingIntervalForSmoothing}m, maxGradient=${maxGradient}%`);
+                sampledPointsData = smoothElevationsByGradient(sampledPointsData, samplingIntervalForSmoothing, maxGradient);
+                //sampledPointsData = smoothElevationsByGradient2(sampledPointsData, samplingIntervalForSmoothing, maxGradient);
 
                 // 3. 元の経路の各点の標高を計算する
                 routeElevations = new Array(path.length);
