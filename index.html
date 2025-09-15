@@ -724,8 +724,10 @@
     <div id="message-box"></div>
 
     <script type="module">
-        // VVoxEngineクラスをモジュールからインポート
+        // TTSエンジンクラスをモジュールからインポート
         import { VVoxEngine } from './script/VVoxEngine.js';
+        import { VoiceVoxWebApi } from './script/VoiceVoxWeb.js';
+
 
         const uiStrings = {
             ja: {
@@ -1434,7 +1436,7 @@
         // --- 音声合成関連 ---
         let voices = [];
         let isVoiceGuidanceEnabled = true;
-        let vvoxEngine = new VVoxEngine(); // ★ vvoxEngineをここで初期化
+        let vvoxEngine; // TTSエンジンインスタンスを保持する変数
 
         function populateVoiceList() {
             if (!vvoxEngine || !vvoxEngine.isAvailable) {
@@ -2812,8 +2814,24 @@
                 }
             });
 
-            // VOICEVOX Engineの初期化を試みる (async/awaitで書き換え)
-            const isVvoxAvailable = await vvoxEngine.initialize();
+            // --- TTSエンジンの初期化 ---
+            // URLパラメータからAPIキーを取得
+            const urlParams = new URLSearchParams(window.location.search);
+            const apiKey = urlParams.get('apiKey');
+
+            let isVvoxAvailable = false;
+            if (apiKey) {
+                // APIキーがあればWeb版APIを使用
+                console.log("Using VOICEVOX Web API with provided key.");
+                vvoxEngine = new VoiceVoxWebApi();
+                isVvoxAvailable = await vvoxEngine.initialize(apiKey);
+            } else {
+                // APIキーがなければローカルエンジンを試す
+                console.log("No API key found, trying to connect to local VOICEVOX engine.");
+                vvoxEngine = new VVoxEngine();
+                isVvoxAvailable = await vvoxEngine.initialize();
+            }
+
             if (isVvoxAvailable) {
                 try {
                     const speakers = await vvoxEngine.getSpeakers();
@@ -2831,6 +2849,10 @@
                     const savedSpeakerId = localStorage.getItem('vvoxSpeakerId');
                     if (savedSpeakerId) {
                         voiceSelect.value = savedSpeakerId;
+                        // setSpeakerIdを呼び出してエンジンに話者IDを設定
+                        vvoxEngine.setSpeakerId(savedSpeakerId);
+                    } else if (speakers.length > 0 && speakers[0].styles.length > 0) {
+                        // デフォルトの話者を設定
                         vvoxEngine.setSpeakerId(savedSpeakerId);
                     }
                 } catch (error) {
