@@ -72,10 +72,10 @@
             align-items: center;
             gap: 8px;
             background-color: rgba(255, 255, 255, 0.9);
-            padding: 5px 10px;
+            padding: 5px 5px;
             border-radius: 5px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            margin: 10px;
+            margin: 0;
         }
         #map-controls-container label {
             font-size: 13px;
@@ -449,7 +449,7 @@
 
             #info-display {
                 gap: 10px;
-                padding: 10px;
+                padding: 10px 0px;
                 justify-content: center;
             }
             .info-item {
@@ -462,7 +462,7 @@
             width: 100%;
             height: 90px;
             background-color: #2c3e50;
-            padding: 5px 20px;
+            padding: 5px 5px;
             box-sizing: border-box;
             position: relative;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
@@ -1170,8 +1170,48 @@
             return correctedPoints;
         }
 
+        /**
+         * 移動平均法を用いて標高データを平滑化します。
+         * ウィンドウ内の標高データをソートし、上下から一定割合のデータを除外して平均を計算することで、外れ値の影響を軽減します。
+         * @param {Array<Object>} pointsData - 'elevation'プロパティを持つオブジェクトの配列
+         * @param {number} windowSize - 平滑化のウィンドウサイズ（奇数を推奨）。大きいほど平滑化が強くなる。
+         * @param {number} [trimRatio=0.1] - 上下から除外するデータの割合 (0から0.5未満)。例えば0.1なら上下10%ずつ除外。
+         * @returns {Array<Object>} - 平滑化された標高データを持つ新しい配列
+         */
+        function applyMovingAverage(pointsData, windowSize, trimRatio = 0.2) {
+            if (pointsData.length < windowSize || windowSize <= 1) {
+                return pointsData;
+            }
+
+            const smoothedPoints = JSON.parse(JSON.stringify(pointsData));
+            const halfWindow = Math.floor(windowSize / 2);
+            const safeTrimRatio = Math.max(0, Math.min(trimRatio, 0.49)); // 0以上0.5未満に補正
+
+            for (let i = 0; i < pointsData.length; i++) {
+                const start = Math.max(0, i - halfWindow);
+                const end = Math.min(pointsData.length, i + halfWindow + 1);
+
+                // ウィンドウ内の標高データを抽出
+                const windowElevations = [];
+                for (let j = start; j < end; j++) {
+                    windowElevations.push(pointsData[j].elevation);
+                }
+
+                // データをソートし、トリム（刈り込み）する
+                windowElevations.sort((a, b) => a - b);
+                const trimCount = Math.floor(windowElevations.length * safeTrimRatio);
+                const trimmedElevations = windowElevations.slice(trimCount, windowElevations.length - trimCount);
+
+                // トリム後のデータで平均を計算
+                const sum = trimmedElevations.reduce((acc, val) => acc + val, 0);
+                smoothedPoints[i].elevation = sum / (trimmedElevations.length || 1);
+            }
+
+            return smoothedPoints;
+        }
+
         //勾配スムージング試作。トンネル補正
-        function smoothElevationsByGradient2(pointsData, samplingInterval = 50, maxGradient = 20) {
+        function smoothElevationsByGradient2(pointsData, maxGradient = 20) {
             if (pointsData.length < 3) {
                 return pointsData;
             }
@@ -1188,14 +1228,27 @@
                 const elevationDiff = nextPoint.elevation - currentPoint.elevation;
                 const gradient = (elevationDiff / distanceDiff) * 100;
 
+                if(gradient > 20) {
+                    correctedPoints[i + 1].elevation = currentPoint.elevation;
+                    continue
+                }
+                else if(gradient < -15) {
+                    correctedPoints[i].elevation = (currentPoint.elevation + nextPoint.elevation) / 2;
+                    continue;
+                }
+
                 const nextPoint2 = correctedPoints[i + 2];
                 const distanceDiff2 = nextPoint2.distance - nextPoint.distance;
                 const elevationDiff2 = nextPoint2.elevation - nextPoint.elevation;
                 const gradient2 = (elevationDiff2 / distanceDiff2) * 100;
 
                 if (gradient2 - gradient > maxGradient) {
-                    // 勾配がしきい値を超えたら、次のポイントの標高を現在のポイントに合わせる
+                    // 次の次の区間の勾配が次の区間の勾配に対して急激に増加
                     correctedPoints[i + 2].elevation = correctedPoints[i + 1].elevation;
+                }
+                else if (Math.abs(gradient2 - gradient) > (maxGradient + 5)) {
+                    // 次と次の次の勾配が正負逆で差が大きい
+                    correctedPoints[i + 1].elevation = currentPoint.elevation;
                 }
             }
             return correctedPoints;
@@ -1439,6 +1492,8 @@
         const originInput = document.getElementById('origin-input');
         const destinationInput = document.getElementById('destination-input');
         const intervalInput = document.getElementById('interval-input');
+        let mapSearchInput = null;
+
         // 新しいオーバーレイのボタンのみを取得
         const directionButtons = document.querySelectorAll('#direction-control-overlay button');
         const speedInput = document.getElementById('speed-input');
@@ -1778,10 +1833,13 @@
 
             try {
                 // 1. 経路長に応じてサンプリング距離を動的に決定する
-                const minSamplingDistance = 25;  // 最小サンプリング距離 (m)
-                const maxSamplingDistance = 150; // 最大サンプリング距離 (m)
-                let samplingDistance = (totalDistance >= 1000) ? (totalDistance * 0.025) : minSamplingDistance;
-                samplingDistance = Math.min(samplingDistance, maxSamplingDistance);
+                // const minSamplingDistance = 25;  // 最小サンプリング距離 (m)
+                // const maxSamplingDistance = 150; // 最大サンプリング距離 (m)
+                // let samplingDistance = (totalDistance >= 1000) ? (totalDistance * 0.025) : minSamplingDistance;
+                // samplingDistance = Math.min(samplingDistance, maxSamplingDistance);
+
+                const interpolationInterval = parseFloat(intervalInput.value, 10);
+                const samplingDistance = interpolationInterval * 20;
 
                 sampledPointsData = [{ point: path[0], distance: 0 }];
                 let distanceSinceLastSample = 0;
@@ -1794,8 +1852,16 @@
                     }
                 }
                 // 最後のポイントがサンプリングされていない場合、追加する
-                if (sampledPointsData[sampledPointsData.length - 1].distance < totalDistance) {
-                    sampledPointsData.push({ point: path[path.length - 1], distance: totalDistance });
+                // 最後のポイントへの残り間隔がサンプリング間隔の半分より短いときは追加でなく書き換え
+                const lastSampledDistance = sampledPointsData[sampledPointsData.length - 1].distance;
+                if (lastSampledDistance < totalDistance) {
+                    if ((totalDistance - lastSampledDistance) < (samplingDistance / 2)) {
+                        sampledPointsData[sampledPointsData.length - 1].point = path[path.length - 1];
+                        sampledPointsData[sampledPointsData.length - 1].distance = totalDistance;
+                    }
+                    else {
+                        sampledPointsData.push({ point: path[path.length - 1], distance: totalDistance });
+                    }
                 }
 
                 // 2. サンプリングした点の標高を取得
@@ -1822,15 +1888,16 @@
                     data.elevation = allElevationResults[i].elevation;
                 });
 
-                // 標高の異常なスパイクを除去するために勾配ベースの平滑化を適用
-                // 移動手段に応じてサンプリング間隔と最大勾配を動的に設定
-                const interpolationInterval = parseFloat(intervalInput.value, 10);
-                const samplingIntervalForSmoothing = interpolationInterval * 5;
-                const maxGradient = (currentTravelMode === 'WALKING') ? 100 : 20; // 徒歩は100%、他は25%
+                // 移動平均法による一般的なスムージングを適用
+                const smoothingWindowSize = 6; // スムージング強度（奇数を推奨）
+                const trimRatio = 0.2; // 上下から除外する割合（例: 0.2 = 上下20%ずつ除外）
+                sampledPointsData = applyMovingAverage(sampledPointsData, smoothingWindowSize, trimRatio);
 
-                console.log(`Applying elevation smoothing: interval=${samplingIntervalForSmoothing}m, maxGradient=${maxGradient}%`);
-                //スムージング関数呼び出し
-                sampledPointsData = smoothElevationsByGradient2(sampledPointsData, samplingIntervalForSmoothing, maxGradient);
+                if (currentTravelMode !== 'WALKING') {
+                    // 徒歩は以外では勾配によるフィルタリング
+                    console.log(`Applying elevation smoothing`);
+                    sampledPointsData = smoothElevationsByGradient2(sampledPointsData, 10);
+                }
 
                 // 3. 元の経路の各点の標高を計算する
                 routeElevations = new Array(path.length);
@@ -2318,14 +2385,20 @@
                 const locationName = locality + sublocality;
                 if (!locationName) return; // アナウンスに必要な地名がなければ終了
 
+                if (mapSearchInput && mapSearchInput.value !== locationName) {
+                    mapSearchInput.value = locationName;
+                }
+
+                const newFullMunicipality = sublocality ? (prefecture + locality + sublocality) : '';
+
                 if (context === 'departure') {
                     const message = (uiStrings[currentLang].departingFrom || '{location} から出発します。').replace('{location}', locationName);
                     speak(message, currentLang === 'ja' ? 'ja-JP' : 'en-US');
+                    currentMunicipality = newFullMunicipality;
                 } else if (context === 'moving') {
                     // 「町」レベルの地名が取得できた場合のみ比較・アナウンス
-                    const newFullMunicipality = sublocality ? (prefecture + locality + sublocality) : '';
-
                     if (newFullMunicipality && newFullMunicipality !== currentMunicipality) {
+
                         if (currentMunicipality !== '') { // 初回はメッセージを表示しない
                             const messageTemplate = uiStrings[currentLang].municipalityGuidance || '{municipality} を移動中です。';
                             const message = messageTemplate.replace('{municipality}', locationName);
@@ -2955,6 +3028,7 @@
 
             // 地図上に検索ボックスを作成して配置
             const searchInput = document.createElement('input');
+            mapSearchInput = searchInput;
             searchInput.id = 'pac-input';
             searchInput.type = 'text';
             searchInput.placeholder = '場所を検索';
@@ -3068,6 +3142,9 @@
                         const displayName = selectedPlace.name || selectedPlace.formatted_address;
                         if (displayName) {
                             originInput.value = displayName;
+                            if (mapSearchInput) {
+                                mapSearchInput.value = displayName;
+                            }
                         } else {
                             // 名前がない場合は逆ジオコーディングで住所を取得
                             setOriginToGeocodedLocation(selectedPlace.geometry.location);
