@@ -1375,31 +1375,6 @@
                 const currentElevation = routeElevations[currentPointIndex];
                 document.getElementById('elevation').textContent = `${currentElevation.toFixed(1)} m`;
 
-                // 現在地が属するサンプリング区間の勾配を計算する
-                //if (sampledPointsData.length >= 2) {
-                    // const currentDistance = cumulativeDistances[currentPointIndex];
-
-                    // // 現在地がどのサンプリング区間にいるかを探す
-                    // let segmentIndex = 0;
-                    // while (segmentIndex < sampledPointsData.length - 2 && currentDistance >= sampledPointsData[segmentIndex + 1].distance) {
-                    //     segmentIndex++;
-                    // }
-
-                    // const startSample = sampledPointsData[segmentIndex];
-                    // const endSample = sampledPointsData[segmentIndex + 1];
-
-                    // const segmentDistance = endSample.distance - startSample.distance;
-                    // const elevationChange = endSample.elevation - startSample.elevation;
-
-                    // // 勾配計算の安定化：走行中の区間が計算に十分な長さを持つ場合のみ、勾配を更新する。
-                    // // 短い区間では、直前の有効な勾配の値を維持することで、異常なスパイクを防ぐ。
-                    // const MIN_GRADIENT_DISTANCE = 1.0; // 勾配計算に使用する最小距離(m)
-
-                    // if (segmentDistance >= MIN_GRADIENT_DISTANCE) {
-                    //     currentGradient = (elevationChange / segmentDistance) * 100;
-                    // }
-                    currentGradient = calculateCurrentGradient();
-                //}
             }
             document.getElementById('gradient').textContent = `${currentGradient.toFixed(1)} %`;
 
@@ -1810,6 +1785,7 @@
                 distanceTraveled = 0; // 走行距離もリセット
             }
             currentPointIndex = 0;
+
             // パワーソースに接続されていない場合のみ、現在の移動モードのデフォルト速度を再設定
             if (!bleDevice || !bleDevice.gatt.connected) {
                 setTravelMode(currentTravelMode, true); // これでspeedInputとmanualSpeedKmhが更新される
@@ -2098,6 +2074,7 @@
             // 経路の開始地点を出発地として設定する
             setOriginToGeocodedLocation(firstPoint);
 
+            currentGradient = calculateCurrentGradient();
             updateInfoDisplay();
             toggleTourButton.disabled = false;
 
@@ -2378,8 +2355,15 @@
                 }
 
                 // 現在のインデックスを更新
+                const lastPointIndex = currentPointIndex;
                 while (currentPointIndex < cumulativeDistances.length - 1 && currentPositionDistance > cumulativeDistances[currentPointIndex + 1]) {
                     currentPointIndex++;
+                }
+
+                if (currentPointIndex !== lastPointIndex) { // currentPointIndex変化したら勾配を再計算
+                    const newGradient = calculateCurrentGradient();
+                    //一瞬で大きな変化をするのを抑える
+                    currentGradient = Math.max(currentGradient - 3, Math.min(newGradient, currentGradient + 3));
                 }
 
                 currentLocationMarker.setPosition(currentPosition);
@@ -2433,6 +2417,7 @@
                 newIndex++;
             }
             currentPointIndex = newIndex;
+            currentGradient = calculateCurrentGradient();
 
             // マーカーの位置を即時更新
             const newPosition = routePoints[currentPointIndex];
@@ -2455,15 +2440,15 @@
          * @param {number} [pointsToConsider=20] - 勾配計算に考慮するデータ点の数（現在地を含む前方）。
          * @returns {number} - 計算された勾配 (%)。
          */
-        function calculateCurrentGradient(pointsToConsider = 10) {
+        function calculateCurrentGradient(fwPointsToConsider = 3, bwPointsToConsider = 3) {
             if (routeElevations.length < 2 || currentPointIndex >= routeElevations.length) {
                 return 0;
             }
 
             // 現在地を中心として、前後のデータ点を収集する
-            const halfPoints = Math.floor(pointsToConsider / 2);
-            const startIndex = Math.max(0, currentPointIndex - halfPoints);
-            const endIndex = Math.min(routeElevations.length, currentPointIndex + halfPoints);
+            //const halfPoints = Math.floor(pointsToConsider / 2);
+            const startIndex = Math.max(0, currentPointIndex - bwPointsToConsider);
+            const endIndex = Math.min(routeElevations.length, currentPointIndex + fwPointsToConsider);
 
             if (endIndex - startIndex < 2) {
                 // 2点未満では勾配を計算できない
