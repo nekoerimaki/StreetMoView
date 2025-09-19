@@ -721,6 +721,13 @@
         <!-- マップ左下に配置するコントロール -->
         <div id="map-controls-container" style="display: none;">
                 <div class="item">
+                    <label for="tilt-view-toggle" data-i18n="tiltView" id="tilt-view-label">チルト表示</label>
+                    <label class="switch">
+                        <input type="checkbox" id="tilt-view-toggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="item">
                     <label for="sv-coverage-toggle" data-i18n="svCoverage">SV道路表示</label>
                     <label class="switch">
                         <input type="checkbox" id="sv-coverage-toggle">
@@ -840,7 +847,9 @@
                 boostOn: 'ブーストON',
                 routeSettingsDisabled: 'ツアー中またはログ記録中は経路設定を変更できません。',
                 searchForPlace: '場所を検索',
-                svCoverage: 'SV道路表示'
+                svCoverage: 'SV道路表示',
+                //headingUp: '進行方向を上に',
+                tiltView: 'チルト表示',
             },
             en: {
                 routeSettings: 'Route Settings',
@@ -938,6 +947,8 @@
                 routeSettingsDisabled: 'Cannot change route settings during a tour or while logging.',
                 searchForPlace: 'Search for a Place',
                 svCoverage: 'SV Coverage',
+                //headingUp: 'Heading Up',
+                tiltView: 'Tilt View',
             }
         };
         let currentLang = 'ja';
@@ -1425,6 +1436,8 @@
         let currentCadence = 0;
         let currentHeartRate = 0;
         let isBoostActive = false;
+        let isVectorMap = false; // ベクターマップが有効かどうかのフラグ
+        let isTiltView = false; // チルト表示が有効かどうかのフラグ
         const BOOST_FACTOR = 1.5;
         let autoBoostThreshold = 10; // オートブーストのしきい値（%）
         let manualSpeedKmh = 0; // 手動入力の速度 (km/h)
@@ -2354,6 +2367,9 @@
                     return;
                 }
 
+                // マーカーは常に正確な現在地に表示
+                currentLocationMarker.setPosition(currentPosition);
+
                 // 現在のインデックスを更新
                 const lastPointIndex = currentPointIndex;
                 while (currentPointIndex < cumulativeDistances.length - 1 && currentPositionDistance > cumulativeDistances[currentPointIndex + 1]) {
@@ -2361,13 +2377,30 @@
                 }
 
                 if (currentPointIndex !== lastPointIndex) { // currentPointIndex変化したら勾配を再計算
+                    let tilt = 0;
+                    let heading = 0;    //北が上（デフォルト）
+                    let cameraCenter = currentPosition;
+                    if (isVectorMap) {  //ベクターマップの場合
+                        if (isTiltView) {   //チルト表示の場合
+                            tilt = 75;
+                            if (currentPointIndex > 0 && currentPointIndex + 1 < routePoints.length) {
+                                heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
+                            }
+                            // ズームレベルに応じてオフセット距離を計算 (ズームアウトするほど遠くを見る)
+                            // ズームレベル17で約150m、ズームレベル12で約4800mになるような計算式
+                            const zoomLevel = map.getZoom() || 17;
+                            const lookAheadDistance = 300 * Math.pow(2, 17 - zoomLevel);
+                            cameraCenter = google.maps.geometry.spherical.computeOffset(currentPosition, lookAheadDistance, heading);
+                        }
+                    }
+                    map.moveCamera({ center: cameraCenter, tilt: tilt});
+                    map.setHeading(heading);
+
                     const newGradient = calculateCurrentGradient();
                     //一瞬で大きな変化をするのを抑える
                     currentGradient = Math.max(currentGradient - 3, Math.min(newGradient, currentGradient + 3));
                 }
 
-                currentLocationMarker.setPosition(currentPosition);
-                map.panTo(currentPosition);
 
                 updateInfoDisplay();
 
@@ -2398,6 +2431,20 @@
                     speed: loggedSpeedKmh // km/hで記録 (actualSpeedKmh)
                 });
             }
+        }
+
+        /**
+         * 指定された距離に最も近い経路上のポイントのインデックスを検索します。
+         * @param {number} distance - 検索する距離 (m)
+         * @returns {number} - 経路ポイントのインデックス
+         */
+        function findIndexByDistance(distance) {
+            if (distance <= 0) return 0;
+            if (distance >= totalDistance) return routePoints.length - 1;
+
+            // 二分探索の方が効率的ですが、今回は線形探索で実装します
+            let index = cumulativeDistances.findIndex(d => d >= distance);
+            return index === -1 ? routePoints.length - 1 : index;
         }
 
         /**
@@ -3076,12 +3123,20 @@
         window.initMap = initMap;
 
         async function initMap() {
+            // URLからMap IDを取得
+            const urlParams = new URLSearchParams(window.location.search);
+            const mapId = urlParams.get('mapId');
+
             map = new google.maps.Map(document.getElementById('map'), {
                 center: initialLocation,
                 zoom: 12,
                 disableDefaultUI: true,
                 streetViewControl: false, // ストリートビューのペグマンを非表示
                 mapTypeControl: true,    // デフォルトのマップ/航空写真コントロールを非表示
+                // Map IDが指定されていれば、ベクターマップとして初期化
+                ...(mapId && { mapId: mapId, tilt: 45, heading: 0 }),
+                // ラスターマップ用の設定（Map IDがない場合）
+                ...(!mapId && { mapTypeId: 'roadmap' }),
                 zoomControl: true,
                 fullscreenControl: true,
                 mapTypeControlOptions: {
@@ -3094,9 +3149,25 @@
                 },
             });
 
+            // Map IDが指定され、正常に読み込めたかを確認、作成時のtiltが反映されているかでベクターマップと判断する
+            if (mapId && map.mapId === mapId && map.tilt === 45) {
+                map.setTilt(0); // 判断に使った４５度を解除
+                isVectorMap = true;
+                console.log('Vector map enabled with Map ID:', mapId);
+                // 「進行方向を上に」のラベルを「チルト表示」に変更
+                const tiltViewLabel = document.getElementById('tilt-view-label');
+                if (tiltViewLabel) {
+                    tiltViewLabel.parentElement.style.display = 'flex'; // チルト表示のitemを表示
+                }
+            } else {
+                const tiltViewLabel = document.getElementById('tilt-view-label');
+                if (tiltViewLabel) tiltViewLabel.parentElement.style.display = 'none'; // チルト表示のitemを非表示
+                isVectorMap = false;
+                console.log('Raster map enabled (No valid Map ID provided or failed to load).');
+            }
+
             // --- TTSエンジンの初期化 ---
             // URLパラメータからAPIキーを取得
-            const urlParams = new URLSearchParams(window.location.search);
             const apiKey = urlParams.get('apiKey');
 
             let isVvoxAvailable = false;
@@ -3373,6 +3444,20 @@
                 showUserContent = event.target.checked;
                 // panoramaのsourceを更新して即時反映
                 panorama.setOptions({ source: showUserContent ? google.maps.StreetViewSource.DEFAULT : google.maps.StreetViewSource.OUTDOOR });
+            });
+
+            // 進行方向を上にするトグルスイッチ
+            const tiltViewToggle = document.getElementById('tilt-view-toggle');
+            tiltViewToggle.addEventListener('change', (event) => {
+                if (isVectorMap) {
+                    // ベクターマップの場合：チルト表示の切り替え
+                    isTiltView = event.target.checked;
+                    map.setTilt(isTiltView ? 60 : 0);
+                    // チルト表示、現在の進行方向に地図の向きを反映させる
+                    const heading = (isTiltView && currentPointIndex + 1 < routePoints.length) ?
+                        getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]) : 0;
+                    map.setHeading(heading);
+                }
             });
 
             // タブが再度表示されたときにWake Lockを再取得する
