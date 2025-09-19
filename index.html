@@ -2566,8 +2566,8 @@
                         sublocality = component.long_name;
                     }
                 }
-                const locationName = locality + sublocality;
-                if (!locationName) return; // アナウンスに必要な地名がなければ終了
+                if (locality === '' && sublocality === '') return; // アナウンスに必要な地名がなければ終了
+                const locationName = locality + ' ' + sublocality;
 
                 if (mapSearchInput && mapSearchInput.value !== locationName) {
                     mapSearchInput.value = locationName;
@@ -2576,7 +2576,7 @@
                 const newFullMunicipality = sublocality ? (prefecture + locality + sublocality) : '';
 
                 if (context === 'departure') {
-                    const message = (uiStrings[currentLang].departingFrom || '{location} から出発します。').replace('{location}', locationName);
+                    const message = (uiStrings[currentLang].departingFrom || '{location}から出発します。').replace('{location}', locationName);
                     speak(message, currentLang === 'ja' ? 'ja-JP' : 'en-US');
                     currentMunicipality = newFullMunicipality;
                 } else if (context === 'moving') {
@@ -2584,7 +2584,7 @@
                     if (newFullMunicipality && newFullMunicipality !== currentMunicipality) {
 
                         if (currentMunicipality !== '') { // 初回はメッセージを表示しない
-                            const messageTemplate = uiStrings[currentLang].municipalityGuidance || '{municipality} を移動中です。';
+                            const messageTemplate = uiStrings[currentLang].municipalityGuidance || '{municipality}を移動中です。';
                             const message = messageTemplate.replace('{municipality}', locationName);
                             showMessage(message, false); // 緑色のメッセージボックス
                             speak(message, currentLang === 'ja' ? 'ja-JP' : 'en-US');
@@ -2592,7 +2592,7 @@
                         currentMunicipality = newFullMunicipality;
                     }
                 } else if (context === 'arrival') {
-                    const message = (uiStrings[currentLang].arrivedAt || '{location} に到着しました。おつかれさまでした。').replace('{location}', locationName);
+                    const message = (uiStrings[currentLang].arrivedAt || '{location}に到着しました。おつかれさまでした。').replace('{location}', locationName);
                     speak(message, currentLang === 'ja' ? 'ja-JP' : 'en-US');
                 }
             } catch (e) {
