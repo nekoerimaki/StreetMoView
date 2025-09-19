@@ -206,7 +206,6 @@
 
         #map, #street-view {
             height: 100%;
-            transition: flex 0.3s ease;
             position: relative;
         }
 
@@ -218,13 +217,6 @@
         #map {
             flex-grow: 0.3;
             flex-basis: 30%;
-        }
-
-        .splitter {
-            width: 8px;
-            background-color: #bdc3c7;
-            cursor: col-resize;
-            z-index: 2;
         }
 
         #message-box {
@@ -569,6 +561,14 @@
             border-radius: 8px;
             box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
         }
+
+        .ratio-switcher {
+            display: flex;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #bdc3c7;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
 <body>
@@ -602,6 +602,13 @@
                     <button id="ble-connect-button" data-i18n="connectPower">パワーソースに接続</button>
                     <button id="hr-connect-button" data-i18n="connectHr">心拍計に接続</button>
                     <button id="log-toggle-button" data-i18n="startLog">ログ開始</button>
+                    <div class="ratio-switcher">
+                        <button data-ratio="10:0">SV</button>
+                        <button data-ratio="7:3">7:3</button>
+                        <button data-ratio="5:5">5:5</button>
+                        <button data-ratio="3:7">3:7</button>
+                        <button data-ratio="0:10">Map</button>
+                    </div>
                 </div>
             </div>
             <div class="header-links">
@@ -715,7 +722,6 @@
                     <button data-angle="90" data-i18n="right90">右90°</button>
                 </div>
             </div>
-            <div class="splitter" id="splitter"></div>
             <div id="map"></div>
         </div>
         <!-- マップ左下に配置するコントロール -->
@@ -1439,6 +1445,8 @@
         let isVectorMap = false; // ベクターマップが有効かどうかのフラグ
         let isTiltView = false; // チルト表示が有効かどうかのフラグ
         const BOOST_FACTOR = 1.5;
+        let isFallbackModeActive = false; // 代替表示モードが有効かどうかのフラグ
+        let savedZoomLevel; // 代替表示モードでズーム倍率をセットする前に元の値を保持
         let autoBoostThreshold = 10; // オートブーストのしきい値（%）
         let manualSpeedKmh = 0; // 手動入力の速度 (km/h)
         let actualSpeedKmh = 0; // 実際の移動速度 (km/h)
@@ -1454,6 +1462,7 @@
 
         let currentMunicipality = ''; // 現在の市区町村名を保持
         let distanceSinceLastGeocode = 0; // 最後のジオコードからの距離
+        let distanceWithoutStreetView = 0; // ストリートビューが見つからない連続距離
         let geocodeIntervalDistance = 1000; // 住所確認の間隔 (m)
         const PHYSICS_CONSTANTS = {
             RIDER_MASS: 70, // kg
@@ -1496,6 +1505,7 @@
         const geocodeIntervalInput = document.getElementById('geocode-interval-input');
         const autoBoostThresholdInput = document.getElementById('auto-boost-threshold');
         const originInput = document.getElementById('origin-input');
+        const splitContainer = document.getElementById('split-container');
         const destinationInput = document.getElementById('destination-input');
         const intervalInput = document.getElementById('interval-input');
         let mapSearchInput = null;
@@ -1505,6 +1515,7 @@
         const speedInput = document.getElementById('speed-input');
         const travelModeButtons = document.querySelectorAll('.mode-switcher button');
         let fullscreenButton;        let currentTravelMode = 'BICYCLING';
+        let ratioButtons;
 
         const defaultSettings = {
             'DRIVING': { speed: 50, interval: 10 },
@@ -1512,6 +1523,43 @@
             'BICYCLING_ROAD': { speed: 20, interval: 5 }, // 高速を避けた自動車モード
             'WALKING': { speed: 5, interval: 3 }
         };
+
+        /**
+         * ストリートビューとマップの分割比率を設定します。
+         * @param {string} ratio - "sv:map" 形式の比率文字列 (例: "7:3")
+         */
+        function setSplitRatio(ratio) {
+            const [svRatio, mapRatio] = ratio.split(':').map(Number);
+            const totalRatio = svRatio + mapRatio;
+
+            const streetViewDiv = document.getElementById('street-view');
+            const mapDiv = document.getElementById('map');
+
+            if (svRatio === 0) {
+                streetViewDiv.style.display = 'none';
+                mapDiv.style.display = 'block';
+                mapDiv.style.flexBasis = '100%';
+            } else if (mapRatio === 0) {
+                streetViewDiv.style.display = 'block';
+                streetViewDiv.style.flexBasis = '100%';
+                mapDiv.style.display = 'none';
+            } else {
+                streetViewDiv.style.display = 'block';
+                mapDiv.style.display = 'block';
+
+                const isMobile = window.innerWidth <= 767;
+                const containerSize = isMobile ? splitContainer.offsetHeight : splitContainer.offsetWidth;
+                streetViewDiv.style.flexBasis = `${containerSize * (svRatio / totalRatio)}px`;
+                mapDiv.style.flexBasis = `${containerSize * (mapRatio / totalRatio)}px`;
+            }
+
+            // ボタンのアクティブ状態を更新
+            ratioButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.ratio === ratio);
+            });
+
+            google.maps.event.trigger(map, 'resize');
+        }
 
         /**
          * フルスクリーンモードを切り替えます。
@@ -2258,6 +2306,36 @@
             reader.readAsText(file);
         });
 
+        /**
+         * 代替表示モードを開始します。
+         */
+        function startFallbackMode() {
+            if (isFallbackModeActive) return;
+            isFallbackModeActive = true;
+            console.log("Entering fallback display mode.");
+            setSplitRatio('0:10'); // マップを全画面表示
+            map.setMapTypeId('satellite'); // 航空写真に切り替え
+
+            if (isVectorMap) {
+                savedZoomLevel = map.getZoom();
+                map.setTilt(80);
+                map.setZoom(22);
+            }
+        }
+
+        /**
+         * 代替表示モードを終了し、通常の表示に戻します。
+         */
+        function stopFallbackMode() {
+            if (!isFallbackModeActive) return;
+            isFallbackModeActive = false;
+            console.log("Exiting fallback display mode.");
+            setSplitRatio(localStorage.getItem('splitRatio') || '7:3'); // 元の比率に戻す
+            if (isVectorMap) {
+                map.setZoom(savedZoomLevel);
+            }
+        }
+
         async function updateStreetView() {
             if (routePoints.length === 0 || currentPointIndex >= routePoints.length) return;
 
@@ -2266,12 +2344,16 @@
             try {
                 const { data } = await streetViewService.getPanorama({
                     location: targetPosition,
-                    radius: 100,
+                    radius: 20,
                     source: showUserContent ? google.maps.StreetViewSource.DEFAULT : google.maps.StreetViewSource.GOOGLE,
                     preference: google.maps.StreetViewPreference.NEAREST
                 });
 
                 if (data && data.location) {
+                    // ストリートビューが見つかったので、代替モードを解除し、距離をリセット
+                    stopFallbackMode();
+                    distanceWithoutStreetView = 0;
+
                     const currentPanoId = panorama.getPano();
                     const newPanoId = data.location.pano;
 
@@ -2286,11 +2368,27 @@
                         }
                     }
                 } else {
-                    console.log(`No panorama found near point ${currentPointIndex}. Skipping Street View update.`);
+                    // ストリートビューが見つからなかった場合
+                    catchNoPanorama();
                 }
             } catch (e) {
-                console.error(`Error getting panorama data for point ${currentPointIndex}:`, e);
-                if (e.code) console.error(`Street View API Error Code: ${e.code}`);
+                if (e.endpoint === 'STREETVIEW_GET_PANORAMA' && e.code === 'ZERO_RESULTS') {
+                    catchNoPanorama();
+                    return;
+                }
+                else {
+                    console.error(`Error getting panorama data for point ${currentPointIndex}:`, e);
+                } 
+            }
+        }
+        function catchNoPanorama() {
+            console.log(`No panorama found near point ${currentPointIndex}. Skipping Street View update.`);
+            const interpolationInterval = parseFloat(intervalInput.value) || 5;
+            const fallbackThreshold = interpolationInterval * 10;
+            distanceWithoutStreetView += STREETVIEW_UPDATE_DISTANCE; // 最後に更新してからの距離を加算
+
+            if (distanceWithoutStreetView > fallbackThreshold) {
+                startFallbackMode();
             }
         }
 
@@ -2373,7 +2471,7 @@
                 // 現在のインデックスを更新
                 const lastPointIndex = currentPointIndex;
                 while (currentPointIndex < cumulativeDistances.length - 1 && currentPositionDistance > cumulativeDistances[currentPointIndex + 1]) {
-                    currentPointIndex++;
+                    currentPointIndex++;                    
                 }
 
                 if (currentPointIndex !== lastPointIndex) { // currentPointIndex変化したら勾配を再計算
@@ -2381,8 +2479,8 @@
                     let heading = 0;    //北が上（デフォルト）
                     let cameraCenter = currentPosition;
                     if (isVectorMap) {  //ベクターマップの場合
-                        if (isTiltView) {   //チルト表示の場合
-                            tilt = 75;
+                        if (isTiltView || isFallbackModeActive) {   //チルト表示または代替モードの場合
+                            tilt = isFallbackModeActive ? 80 : 75;
                             if (currentPointIndex > 0 && currentPointIndex + 1 < routePoints.length) {
                                 heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
                             }
@@ -3127,6 +3225,9 @@
             const urlParams = new URLSearchParams(window.location.search);
             const mapId = urlParams.get('mapId');
 
+            // localStorageから保存されたマップタイプを読み込む
+            const savedMapTypeId = localStorage.getItem('streetMoViewMapTypeId') || 'roadmap';
+
             map = new google.maps.Map(document.getElementById('map'), {
                 center: initialLocation,
                 zoom: 12,
@@ -3135,18 +3236,22 @@
                 mapTypeControl: true,    // デフォルトのマップ/航空写真コントロールを非表示
                 // Map IDが指定されていれば、ベクターマップとして初期化
                 ...(mapId && { mapId: mapId, tilt: 45, heading: 0 }),
-                // ラスターマップ用の設定（Map IDがない場合）
-                ...(!mapId && { mapTypeId: 'roadmap' }),
+                mapTypeId: savedMapTypeId,
                 zoomControl: true,
                 fullscreenControl: true,
                 mapTypeControlOptions: {
                     style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
-                    //style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
+                    style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
                     position: google.maps.ControlPosition.LEFT_TOP // 新しい位置を指定
                 },
                 zoomControlOptions: { //ズーム コントロール
                     position: google.maps.ControlPosition.RIGHT_BOTTOMC,
                 },
+            });
+
+            // マップタイプが変更されたらlocalStorageに保存するリスナーを追加
+            map.addListener('maptypeid_changed', () => {
+                localStorage.setItem('streetMoViewMapTypeId', map.getMapTypeId());
             });
 
             // Map IDが指定され、正常に読み込めたかを確認、作成時のtiltが反映されているかでベクターマップと判断する
@@ -3247,10 +3352,10 @@
             searchInput.id = 'pac-input';
             searchInput.type = 'text';
             searchInput.placeholder = '場所を検索';
-            searchInput.style.cssText = 'background-color: #fff; font-family: Roboto; font-size: 15px; font-weight: 300; margin: 10px 0 10px 10px; padding: 5px 10px; width: 300px; border: 1px solid #ccc; box-shadow: 0 2px 6px rgba(0,0,0,0.3); border-radius: 3px;';
+            searchInput.style.cssText = 'background-color: #fff; font-family: Roboto; font-size: 15px; font-weight: 300; margin-top: 10px; margin-left: 65px; padding: 5px 10px; width: 180px; border: 1px solid #ccc; box-shadow: 0 2px 6px rgba(0,0,0,0.3); border-radius: 3px;';
             
             const searchBox = new google.maps.places.SearchBox(searchInput);
-            map.controls[google.maps.ControlPosition.TOP_LEFT].push(searchInput);
+            map.controls[google.maps.ControlPosition.TOP_CENTER].push(searchInput);
 
             // 検索ボックスのプレースホルダーを初期設定
             searchInput.placeholder = uiStrings[currentLang].searchForPlace;
@@ -3415,6 +3520,16 @@
                 destinationLatLng = destinationAutocomplete.getPlace()?.geometry?.location || null;
             });
 
+            ratioButtons = document.querySelectorAll('.ratio-switcher button');
+            ratioButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    setSplitRatio(btn.dataset.ratio);
+                    // 状態を保存
+                    localStorage.setItem('splitRatio', btn.dataset.ratio);
+                });
+            });
+
+
             const elevationChartCanvas = document.getElementById('elevation-chart');
             elevationChartCanvas.addEventListener('click', handleChartClick);
 
@@ -3494,65 +3609,17 @@
             const splitter = document.getElementById('splitter');
             const mapDiv = document.getElementById('map');
             const streetViewDiv = document.getElementById('street-view');
-            const splitContainer = document.getElementById('split-container');
-            let isDragging = false;
-            let startPos;
-            let startSize;
 
-            streetViewDiv.style.flexGrow = '0';
-            mapDiv.style.flexGrow = '0';
+            // 初期比率を設定（localStorageから読み込む）
+            const savedRatio = localStorage.getItem('splitRatio') || '7:3';
+            setSplitRatio(savedRatio);
 
-            const initialRatio = 0.7;
             const isMobile = window.innerWidth <= 767;
-            if (isMobile) {
-                streetViewDiv.style.flexBasis = `${splitContainer.offsetHeight * initialRatio}px`;
-                mapDiv.style.flexBasis = `${splitContainer.offsetHeight * (1 - initialRatio)}px`;
-            } else {
-                streetViewDiv.style.flexBasis = `${splitContainer.offsetWidth * initialRatio}px`;
-                mapDiv.style.flexBasis = `${splitContainer.offsetWidth * (1 - initialRatio)}px`;
-            }
 
-            splitter.addEventListener('mousedown', (e) => {
-                isDragging = true;
-                e.preventDefault();
-                document.body.style.cursor = isMobile ? 'row-resize' : 'col-resize';
-                mapDiv.style.transition = 'none';
-                streetViewDiv.style.transition = 'none';
-                if (isMobile) {
-                    startPos = e.clientY;
-                    startSize = streetViewDiv.offsetHeight;
-                } else {
-                    startPos = e.clientX;
-                    startSize = streetViewDiv.offsetWidth;
-                }
-            });
-
-            document.addEventListener('mouseup', () => {
-                if (!isDragging) return;
-                isDragging = false;
-                document.body.style.cursor = 'default';
-                mapDiv.style.transition = 'flex 0.3s ease';
-                streetViewDiv.style.transition = 'flex 0.3s ease';
-            });
-
-            document.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                const rect = splitContainer.getBoundingClientRect();
-                const minSize = 100;
-                let newSize;
-                if (isMobile) {
-                    const delta = e.clientY - startPos;
-                    newSize = startSize + delta;
-                    newSize = Math.max(minSize, Math.min(newSize, rect.height - minSize));
-                    streetViewDiv.style.flexBasis = `${newSize}px`;
-                    mapDiv.style.flexBasis = `${rect.height - newSize}px`;
-                } else {
-                    const delta = e.clientX - startPos;
-                    newSize = startSize + delta;
-                    newSize = Math.max(minSize, Math.min(newSize, rect.width - minSize));
-                    streetViewDiv.style.flexBasis = `${newSize}px`;
-                    mapDiv.style.flexBasis = `${rect.width - newSize}px`;
-                }
+            window.addEventListener('resize', () => {
+                if (isFallbackModeActive) return;
+                const currentRatio = localStorage.getItem('splitRatio');
+                if (currentRatio) setSplitRatio(currentRatio);
             });
         }
 
