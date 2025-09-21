@@ -1303,17 +1303,17 @@ async function processRoute(path, gpxElevationAvailable = false) {
 
     const halfWindow = 10;
 
-    for (let i = 0; i < routeElevations.length; i++) {
-        const start = Math.max(0, i - halfWindow);
-        const end = Math.min(routeElevations.length, i + halfWindow + 1);
-        const windowSlice = routeElevations.slice(start, end);
+    // for (let i = 0; i < routeElevations.length; i++) {
+    //     const start = Math.max(0, i - halfWindow);
+    //     const end = Math.min(routeElevations.length, i + halfWindow + 1);
+    //     const windowSlice = routeElevations.slice(start, end);
         
-        const sum = windowSlice.reduce((acc, val) => acc + val, 0);
-        const average = sum / windowSlice.length;
+    //     const sum = windowSlice.reduce((acc, val) => acc + val, 0);
+    //     const average = sum / windowSlice.length;
         
-        routeElevations[i] = average;
-    }
-            console.log("applied Moving Average");
+    //     routeElevations[i] = average;
+    // }
+    //         console.log("applied Moving Average");
 
 
             // const forewardIndexOffset = 20;
@@ -1420,7 +1420,7 @@ async function processRoute(path, gpxElevationAvailable = false) {
 /**
  * ユーザー入力に基づいて経路を計算し表示します。
  */
-function calculateAndDisplayRoute() {
+async function calculateAndDisplayRoute() {
     resetTourState();
 
     const originValue = originInput.value;
@@ -1453,38 +1453,238 @@ function calculateAndDisplayRoute() {
         request.avoidTolls = true;
     }
 
-    directionsService.route(request).then((response) => {
-        if (response.status === 'OK') {                    
-            // 経路の色を赤に変更 (既に適用済みですが、確認のため記載)
+    try {
+        const routeResponse = await directionsService.route(request);
+        if (routeResponse.status === 'OK') {
+        // 経路の色を赤に変更 (既に適用済みですが、確認のため記載)
             directionsRenderer.setOptions({
                 polylineOptions: { strokeColor: '#e74c3c', strokeWeight: 5, strokeOpacity: 0.8 }
             });
             // overview_pathの代わりに、より詳細なstepsのpathを連結して使用する
-            const detailedPath = response.routes[0].legs.flatMap(leg => leg.steps.flatMap(step => step.path));
-            directionsRenderer.setDirections(response);
+            const detailedPath = routeResponse.routes[0].legs.flatMap(leg => leg.steps.flatMap(step => step.path));
+            directionsRenderer.setDirections(routeResponse);
+            const routeDistance = routeResponse.routes[0].legs[0].distance.value;
 
             const interpolatedPath = [];
-            for (let i = 0; i < detailedPath.length - 1; i++) {
-                const p1 = detailedPath[i];
-                const p2 = detailedPath[i + 1];
-                const distance = getDistance(p1, p2);
-                const segments = Math.ceil(distance / (interpolationInterval * 2));
-                for (let j = 0; j < segments; j++) {
-                    const fraction = j / segments;
-                    interpolatedPath.push(interpolate(p1, p2, fraction));
+            routeElevations = [];
+            // const samplingPoints = Math.max(Math.trunc(routeDistance / interpolationInterval), detailedPath.length);
+            // const elevationResponse = await elevationService.getElevationAlongPath({
+            //     path: detailedPath,
+            //     samples: samplingPoints });
+
+            //     for (let i = 0; i < elevationResponse.results.length; i++) {
+            //         interpolatedPath.push(elevationResponse.results[i].location);
+            //         routeElevations.push(elevationResponse.results[i].elevation);
+            //     }
+
+            const API_LIMIT = 512;
+            let cumulativeDistance = 0;
+            let startChunk = 0;
+            let chunkLength = 0;
+            let previousPath = detailedPath[0];
+            for (let i = 1; i < detailedPath.length; i++) {
+                chunkLength++;
+                cumulativeDistance += google.maps.geometry.spherical.computeDistanceBetween(previousPath, detailedPath[i]);
+                previousPath = detailedPath[i];
+                let sliceLength = 0;
+                let sampleLength = 0;
+                if (cumulativeDistance > API_LIMIT * interpolationInterval) {
+                    sliceLength = i - startChunk;
+                    sampleLength = API_LIMIT; 
+                }
+                else if (chunkLength === API_LIMIT) { // detailedPathの解像度がinterpolationIntervalより小さい傾向
+                    sliceLength = API_LIMIT;
+                    sampleLength = API_LIMIT; 
+                } else if (i === detailedPath.length - 1) { // 最後のチャンク
+                    sliceLength = i - startChunk;
+                    sampleLength = Math.max(sliceLength, Math.trunc(cumulativeDistance / interpolationInterval));
+                }    
+                if (sliceLength > 0) {
+                    const chunkPath = detailedPath.slice(startChunk, startChunk + sliceLength);
+                    const elevationResponse = await elevationService.getElevationAlongPath({
+                        path: chunkPath,
+                        samples: sampleLength });
+                    chunkLength = 0;
+                    startChunk = i;
+                    cumulativeDistance = 0;
+
+                    for (let j = 0; j < elevationResponse.results.length; j++) {
+                        interpolatedPath.push(elevationResponse.results[j].location);
+                        routeElevations.push(elevationResponse.results[j].elevation);
+                    }
+
                 }
             }
-            interpolatedPath.push(detailedPath[detailedPath.length - 1]);
 
-            processRoute(interpolatedPath);
-        } else {
-            throw new Error(`${uiStrings[currentLang].routeSearchFailed}${response.status}`);
+                
+
+            //    console.log(`chunkPath-length: ${chunkPath.length} samples: ${samplesForThisChunk} result-length: ${elevationResponse.results.length}`);
+
+
+            // }
+            // if (interpolatedPath.length === 0) {
+            //     for (let i = 0; i < detailedPath.length - 1; i++) {
+            //         const p1 = detailedPath[i];
+            //         const p2 = detailedPath[i + 1];
+            //         const distance = getDistance(p1, p2);
+            //         const segments = Math.ceil(distance / (interpolationInterval * 2));
+            //         for (let j = 0; j < segments; j++) {
+            //             const fraction = j / segments;
+            //             interpolatedPath.push(interpolate(p1, p2, fraction));
+            //         }
+            //     }
+            //     interpolatedPath.push(detailedPath[detailedPath.length - 1]);
+            // }
+            await processRoute(interpolatedPath, routeElevations.length > 0);
         }
-    }).catch((e) => {
+    }
+    catch(e) {
+        console.error(e);
         showMessage(uiStrings[currentLang].routeNotFound);
-    });
+    }
+
+
+    // directionsService.route(request).then((response) => {
+    //     if (response.status === 'OK') {                    
+    //         // 経路の色を赤に変更 (既に適用済みですが、確認のため記載)
+    //         directionsRenderer.setOptions({
+    //             polylineOptions: { strokeColor: '#e74c3c', strokeWeight: 5, strokeOpacity: 0.8 }
+    //         });
+    //         // overview_pathの代わりに、より詳細なstepsのpathを連結して使用する
+    //         const detailedPath = response.routes[0].legs.flatMap(leg => leg.steps.flatMap(step => step.path));
+    //         directionsRenderer.setDirections(response);
+    //         const routeDistance = response.routes[0].legs[0].distance.value;
+
+    //         const interpolatedPath = [];
+    //         routeElevations = [];
+
+    //         // Create an ElevationService.
+    //         //const elevator = new google.maps.ElevationService();
+    //         const samplingPoints = Math.trunc(routeDistance / interpolationInterval);
+    //         // const elevationAlongPath = await getElevationsAlongPathByTotalSamples(detailedPath, samplingPoints);
+    //         // for (let i = 0; i < elevationAlongPath.length; i++) {
+    //         //     interpolatedPath.push(elevationAlongPath[i].location);
+    //         //     routeElevations.push(elevationAlongPath[i].elevation);
+    //         // }
+
+
+
+
+    //         if (interpolatedPath.length === 0) {
+    //         for (let i = 0; i < detailedPath.length - 1; i++) {
+    //             const p1 = detailedPath[i];
+    //             const p2 = detailedPath[i + 1];
+    //             const distance = getDistance(p1, p2);
+    //             const segments = Math.ceil(distance / (interpolationInterval * 2));
+    //             for (let j = 0; j < segments; j++) {
+    //                 const fraction = j / segments;
+    //                 interpolatedPath.push(interpolate(p1, p2, fraction));
+    //             }
+    //         }
+    //         interpolatedPath.push(detailedPath[detailedPath.length - 1]);
+
+    //         }
+
+
+    //         processRoute(interpolatedPath, routeElevations.length > 0);
+    //     } else {
+    //         throw new Error(`${uiStrings[currentLang].routeSearchFailed}${response.status}`);
+    //     }
+    // }).catch((e) => {
+    //     showMessage(uiStrings[currentLang].routeNotFound);
+    // });
 }
 
+async function getDetailedPath(request) {
+    let result = [];
+    const response = await directionsService.route(request);
+    if (response.status === 'OK') {
+        result = response.routes[0].legs.flatMap(leg => leg.steps.flatMap(step => step.path));
+    }
+}
+/**
+ * 元の経路から、指定された割合の区間を抜き出します。
+ * @param {google.maps.LatLng[]} originalPath - 元の経路の座標配列。
+ * @param {number} startFraction - 開始割合 (0.0 to 1.0)。
+ * @param {number} endFraction - 終了割合 (0.0 to 1.0)。
+ * @returns {google.maps.LatLng[]} - 抜き出された区間の座標配列。
+ */
+function getPathSegment(originalPath, startFraction, endFraction) {
+    const cumulativeDistances = [0];
+    for (let i = 1; i < originalPath.length; i++) {
+        cumulativeDistances.push(cumulativeDistances[i - 1] + google.maps.geometry.spherical.computeDistanceBetween(originalPath[i - 1], originalPath[i]));
+    }
+    const totalPathDistance = cumulativeDistances[cumulativeDistances.length - 1];
+
+    const startDistance = totalPathDistance * startFraction;
+    const endDistance = totalPathDistance * endFraction;
+
+    const segmentPath = [];
+
+    // 開始点を見つける
+    let startIndex = cumulativeDistances.findIndex(d => d >= startDistance);
+    if (startIndex === -1) startIndex = originalPath.length - 1;
+
+    // 開始点がセグメントの途中にある場合、補間して正確な開始点を追加
+    if (startIndex > 0 && cumulativeDistances[startIndex] > startDistance) {
+        const p1 = originalPath[startIndex - 1];
+        const p2 = originalPath[startIndex];
+        const segmentLen = cumulativeDistances[startIndex] - cumulativeDistances[startIndex - 1];
+        const fraction = (startDistance - cumulativeDistances[startIndex - 1]) / segmentLen;
+        segmentPath.push(google.maps.geometry.spherical.interpolate(p1, p2, fraction));
+    } else {
+        segmentPath.push(originalPath[startIndex]);
+    }
+
+    // 中間の点を追加
+    for (let i = startIndex; i < originalPath.length; i++) {
+        if (cumulativeDistances[i] > startDistance && cumulativeDistances[i] < endDistance) {
+            segmentPath.push(originalPath[i]);
+        }
+        if (cumulativeDistances[i] >= endDistance) {
+            const p1 = originalPath[i - 1];
+            const p2 = originalPath[i];
+            const segmentLen = cumulativeDistances[i] - cumulativeDistances[i - 1];
+            const fraction = (endDistance - cumulativeDistances[i - 1]) / segmentLen;
+            segmentPath.push(google.maps.geometry.spherical.interpolate(p1, p2, fraction));
+            break;
+        }
+    }
+    return segmentPath;
+}
+
+/**
+ * 指定された総サンプル数で、APIの上限を考慮して経路全体の標高を取得します。
+ * @param {google.maps.LatLng[]} path - 経路全体の座標配列。
+ * @param {number} totalSamples - 経路全体で取得したい総サンプル数。
+ * @returns {Promise<Array<{location: google.maps.LatLng, elevation: number, resolution: number}>>} - 結合された標高データの配列。
+ */
+async function getElevationsAlongPathByTotalSamples(path, totalSamples) {
+    const API_LIMIT = 512;
+    let allResults = [];
+
+    const numberOfChunks = Math.ceil(totalSamples / API_LIMIT);
+
+    for (let i = 0; i < numberOfChunks; i++) {
+        const isLastChunk = (i === numberOfChunks - 1);
+        const samplesForThisChunk = isLastChunk ? totalSamples % API_LIMIT || API_LIMIT : API_LIMIT;
+
+        // チャンクの開始点と終了点を元の経路から見つける
+        const startFraction = (i * API_LIMIT) / totalSamples;
+        const endFraction = (i * API_LIMIT + samplesForThisChunk) / totalSamples;
+
+        const chunkPath = getPathSegment(path, startFraction, endFraction);
+
+        if (chunkPath.length < 2) continue;
+
+        const elevationResponse = await elevationService.getElevationAlongPath({
+            path: chunkPath,
+            samples: samplesForThisChunk
+        });
+        allResults = allResults.concat(elevationResponse.results);
+    }
+    return allResults;
+}
 loadGpxButton.addEventListener('click', () => {
     gpxFileInput.click();
 });
@@ -1561,16 +1761,6 @@ gpxFileInput.addEventListener('change', (event) => {
             });
             gpxRoutePolyline.setMap(map);
             
-            // GPXに標高データがある場合は、それをprocessRouteに渡す
-            // if (hasElevationData) {
-            //     const gpxPathWithElevation = gpxPoints.map(p => ({
-            //         location: new google.maps.LatLng(p.lat, p.lng),
-            //         elevation: p.ele
-            //     }));
-            //     processRoute(interpolatedPath, gpxPathWithElevation);
-            // } else {
-            //     processRoute(interpolatedPath);
-            // }
             processRoute(interpolatedPath, hasElevationData);
         } catch (error) {
             showMessage(uiStrings[currentLang].gpxParseError);
@@ -1947,7 +2137,7 @@ async function announceLocation(location, context) {
         const newFullMunicipality = sublocality ? (prefecture + locality + sublocality) : '';
 
         if (context === 'departure') {
-            const message = (uiStrings[currentLang].departingFrom || '{location}から出発します。').replace('{location}', locationName);
+            const message = (uiStrings[currentLang].departingFrom || '{location}から、出発します。').replace('{location}', locationName);
             speak(message, currentLang === 'ja' ? 'ja-JP' : 'en-US');
             currentMunicipality = newFullMunicipality;
         } else if (context === 'moving') {
@@ -1955,7 +2145,7 @@ async function announceLocation(location, context) {
             if (newFullMunicipality && newFullMunicipality !== currentMunicipality) {
 
                 if (currentMunicipality !== '') { // 初回はメッセージを表示しない
-                    const messageTemplate = uiStrings[currentLang].municipalityGuidance || '{municipality}を移動中です。';
+                    const messageTemplate = uiStrings[currentLang].municipalityGuidance || '{municipality}を、移動中です。';
                     const message = messageTemplate.replace('{municipality}', locationName);
                     showMessage(message, false); // 緑色のメッセージボックス
                     speak(message, currentLang === 'ja' ? 'ja-JP' : 'en-US');
@@ -1963,7 +2153,7 @@ async function announceLocation(location, context) {
                 currentMunicipality = newFullMunicipality;
             }
         } else if (context === 'arrival') {
-            const message = (uiStrings[currentLang].arrivedAt || '{location}に到着しました。おつかれさまでした。').replace('{location}', locationName);
+            const message = (uiStrings[currentLang].arrivedAt || '{location}に、到着しました。おつかれさまでした。').replace('{location}', locationName);
             speak(message, currentLang === 'ja' ? 'ja-JP' : 'en-US');
         }
     } catch (e) {
