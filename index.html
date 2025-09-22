@@ -11,6 +11,12 @@
     <div id="main-container">
         <div class="controls-area">
             <div class="control-groups">
+                <button id="hide-toolbar-button" title="ツールバーを隠す">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                        <path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/>
+                    </svg>
+                </button>
+
                 <div class="dropdown-container">
                     <button id="route-settings-button" data-i18n="routeSettings">経路設定</button>
                     <div class="dropdown-content" id="route-settings-dropdown">
@@ -63,6 +69,15 @@
                         <span data-i18n="settings">設定</span>
                     </button>
                     <div class="dropdown-content" id="settings-dropdown">
+                        <div class="settings-item">
+                            <label for="auto-hide-toolbar-toggle" data-i18n="autoHideToolbar">ツアー開始時にツールバーを隠す</label>
+                            <div>
+                                <label class="switch">
+                                    <input type="checkbox" id="auto-hide-toolbar-toggle" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
                         <div id="lang-switcher">
                             <button data-lang="ja" class="lang-btn active">日本語</button>
                             <button data-lang="en" class="lang-btn">English</button>
@@ -87,6 +102,15 @@
                         <div class="settings-item">
                             <label for="auto-boost-threshold" data-i18n="autoBoostThresholdLabel">自動ブースト勾配 (%)</label>
                             <input type="number" id="auto-boost-threshold" min="0" max="50" step="1">
+                        </div>
+                        <div class="settings-item">
+                            <label for="links-control-toggle" data-i18n="linksControl">ナビゲーション矢印</label>
+                            <div>
+                                <label class="switch">
+                                    <input type="checkbox" id="links-control-toggle">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>
