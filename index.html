@@ -69,15 +69,6 @@
                         <span data-i18n="settings">設定</span>
                     </button>
                     <div class="dropdown-content" id="settings-dropdown">
-                        <div class="settings-item">
-                            <label for="auto-hide-toolbar-toggle" data-i18n="autoHideToolbar">ツアー開始時にツールバーを隠す</label>
-                            <div>
-                                <label class="switch">
-                                    <input type="checkbox" id="auto-hide-toolbar-toggle" checked>
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                        </div>
                         <div id="lang-switcher">
                             <button data-lang="ja" class="lang-btn active">日本語</button>
                             <button data-lang="en" class="lang-btn">English</button>
@@ -104,13 +95,12 @@
                             <input type="number" id="auto-boost-threshold" min="0" max="50" step="1">
                         </div>
                         <div class="settings-item">
-                            <label for="links-control-toggle" data-i18n="linksControl">ナビゲーション矢印</label>
-                            <div>
-                                <label class="switch">
-                                    <input type="checkbox" id="links-control-toggle">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
+                            <label for="gradient-limiter-input" data-i18n="gradientLimiterLabel">勾配リミッター (%)</label>
+                            <input type="number" id="gradient-limiter-input" min="0" max="99" step="1">
+                        </div>
+                        <div class="settings-item">
+                            <label for="speed-limiter-input" data-i18n="speedLimiterLabel">速度リミッター (km/h)</label>
+                            <input type="number" id="speed-limiter-input" min="0" max="200" step="5">
                         </div>
                     </div>
                 </div>
@@ -129,6 +119,10 @@
 
         <div id="split-container">
             <div id="message-box"></div>
+            <div id="speed-overlay">
+                <span id="speed-value">0<span class="decimal-small">.0</span></span>
+                <span id="speed-unit">km/h</span>
+            </div>
             <div id="street-view">
                 <!-- 【ストリートビュー】表示方向ボタン -->
                 <div id="direction-control-overlay" class="sv-overlay-control">
@@ -248,10 +242,6 @@
                 <span class="info-value" id="time-elapsed">00:00:00</span>
             </div>
             <div class="info-item">
-                <span class="info-label" data-i18n="actualSpeed">移動速度</span>
-                <span class="info-value" id="actual-speed">0.0 km/h</span>
-            </div>
-            <div class="info-item">
                 <span class="info-label" data-i18n="timeRemaining">残り時間</span>
                 <span class="info-value" id="time-remaining">00:00:00</span>
             </div>
@@ -263,16 +253,18 @@
                 <span class="info-label" data-i18n="gradient">勾配</span>
                 <span class="info-value" id="gradient">N/A</span>
             </div>
-            <div class="info-item">
+            <div class="info-item-no-grow">
                 <span class="info-label" data-i18n="power">パワー</span>
                 <span class="info-value" id="power-display">0 W</span>
             </div>
-            <button id="boost-button" title="ブースト">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16">
-                    <path
-                        d="M5.52.359A.5.5 0 0 1 6 0h4a.5.5 0 0 1 .474.658L8.694 6H12.5a.5.5 0 0 1 .395.807l-7 9a.5.5 0 0 1-.873-.454L6.823 9.5H3.5a.5.5 0 0 1-.48-.641z" />
-                </svg>
-            </button>
+            <div class="info-item-no-grow">
+                <span class="info-label" data-i18n="boost">Boost</span>
+                <button id="boost-button" title="ブースト">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M5.52.359A.5.5 0 0 1 6 0h4a.5.5 0 0 1 .474.658L8.694 6H12.5a.5.5 0 0 1 .395.807l-7 9a.5.5 0 0 1-.873-.454L6.823 9.5H3.5a.5.5 0 0 1-.48-.641z" />
+                    </svg>
+                </button>
+            </div>
             <div class="info-item">
                 <span class="info-label" data-i18n="cadence">ケイデンス</span>
                 <span class="info-value" id="cadence-display">0 rpm</span>

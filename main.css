@@ -257,6 +257,39 @@ button:disabled {
     transition: opacity 0.5s ease-in-out;
 }
 
+#speed-overlay { /*スピードオーバーレイ表示*/
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end; /* 子要素を右寄せにする */
+    position: absolute;
+    width: 86px;
+    bottom: 24px;
+    left: 10px;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: #7fff00;
+    gap: 0px 0px;
+    z-index: 100;
+    opacity: 1;
+    transition: opacity 0.5s ease-in-out;
+}
+#speed-overlay #speed-value {
+    margin-top: -14px;
+    margin-right: 4px;
+    font-size: 3rem;
+    font-weight: bold;
+}
+.decimal-small {    /*小数点以下を小さく*/
+    font-size: 1.5rem;
+}
+#speed-overlay #speed-unit {
+    color: white;
+    margin-bottom: -14px;
+    margin-right: 4px;
+    font-weight: bold;
+    transform: translateY(-14px); /*力技で行間詰め*/
+}
+
+
 .mode-switcher {
     display: flex;
     background-color: #eee;
@@ -301,6 +334,12 @@ button:disabled {
     flex-direction: column;
     align-items: center;
     flex-grow: 1; /* 利用可能なスペースを均等に埋める */
+}
+.info-item-no-grow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-grow: 0; /* アイテムの幅に固定 */
 }
 .info-label {
     font-weight: bold;
@@ -395,13 +434,14 @@ button:disabled {
 }
 
 #boost-button {
-    display: none; /* Initially hidden */
+    display: block; /* Initially hidden */
     background-color: transparent;
     border: 1px solid #bdc3c7;
     color: #bdc3c7;
-    width: 40px;
-    height: 40px;
+    width: 24px;
+    height: 24px;
     padding: 0;
+    margin-top: 2px;
     border-radius: 50%;
     box-shadow: none;
     transform: none;
@@ -414,31 +454,12 @@ button:disabled {
     color: white;
     border-color: #f1c40f;
 }
+#boost-button svg {
+    margin-top: 1px;
+    width: 18px; /* ボタンの幅に対する割合でサイズを指定 */
+    height: 20px;
+}
 
-#info-display #boost-button {
-    display: none; /* Initially hidden */
-    background-color: transparent;
-    border: 1px solid #bdc3c7;
-    color: #bdc3c7;
-    padding: 0;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    box-shadow: none;
-    transform: none;
-    align-self: center; /* Vertically center in the flex container */
-    margin: 0 10px;
-    flex-grow: 0; /* この要素は伸縮させない */
-}
-#info-display #boost-button svg {
-    width: 60%; /* ボタンの幅に対する割合でサイズを指定 */
-    height: 100%;
-}
-#info-display #boost-button.active {
-    background-color: #f1c40f;
-    color: white;
-    border-color: #f1c40f;
-}
 
 /* Google Places Autocomplete suggestions z-index fix */
 .pac-container {

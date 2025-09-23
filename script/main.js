@@ -33,6 +33,7 @@ const uiStrings = {
         elevation: '標高',
         gradient: '勾配',
         power: 'パワー',
+        boost: 'ブースト',
         cadence: 'ケイデンス',
         heartRate: '心拍数',
         directionSettings: '表示方向',
@@ -85,23 +86,23 @@ const uiStrings = {
         setAsDestinationAndSearch: 'ここへの経路を検索',
         setAsDestination: '目的地に設定',
         setAsHome: 'ホームに設定',
-        arrivedAt: '{location} に到着しました。おつかれさまでした。',
+        arrivedAt: '{location}に到着しました。おつかれさまでした。',
         homeSet: 'ホーム地点を設定しました。次回起動時にこの場所から開始します。',
         boost: 'ブースト',
-        municipalityGuidance: '{municipality} を移動中です。',
+        municipalityGuidance: '{municipality}を移動中です。',
         settings: '設定',
         voiceGuidance: '地名アナウンス',
-        departingFrom: '{location} から出発します。',
+        departingFrom: '{location}から 出発します。',
         voiceSelect: '声色',
         geocodeInterval: '地名確認の間隔 (m)',
-        autoHideToolbar: 'ツアー開始時にツールバーを隠す',
         autoBoostSettings: '自動ブースト',
         autoBoostThresholdLabel: '自動ブースト勾配 (%)',
         boostOn: 'ブーストON',
+        gradientLimiterLabel: '勾配リミッター (%)',
+        speedLimiterLabel: '速度リミッター (km/h)',
         routeSettingsDisabled: 'ツアー中またはログ記録中は経路設定を変更できません。',
         searchForPlace: '場所を検索',
         svCoverage: 'SV道路表示',
-        linksControl: 'ナビゲーション矢印',
         //headingUp: '進行方向を上に',
         satelliteView: '航空写真',
         tiltView: 'チルト表示',
@@ -135,6 +136,7 @@ const uiStrings = {
         elevation: 'Elevation',
         gradient: 'Gradient',
         power: 'Power',
+        boost: 'boost',
         cadence: 'Cadence',
         heartRate: 'Heart Rate',
         directionSettings: 'View Dir',
@@ -196,14 +198,14 @@ const uiStrings = {
         departingFrom: 'Departing from {location}.',
         voiceSelect: 'Voice',
         geocodeInterval: 'Location Check Interval (m)',
-        autoHideToolbar: 'Auto-hide toolbar on tour start',
         autoBoostSettings: 'Auto Boost',
         autoBoostThresholdLabel: 'Auto Boost Gradient',
         boostOn: 'Boost ON',
+        gradientLimiterLabel: 'Gradient Limiter (%)',
+        speedLimiterLabel: 'Speed Limiter (km/h)',
         routeSettingsDisabled: 'Cannot change route settings during a tour or while logging.',
         searchForPlace: 'Search for a Place',
         svCoverage: 'SV Coverage',
-        linksControl: 'Navigation Arrows',
         //headingUp: 'Heading Up',
         satelliteView: 'Satellite View',
         tiltView: 'Tilt View',
@@ -255,6 +257,8 @@ function getNiceTickInterval(totalDistance) {
     return Math.max(10 * power, 10);
 }
 
+const elevationChartPadding = { top: 5, bottom: 20, left: 40, right: 5 };  //drawElevationChartとhandleChartClickで使用
+
 /**
  * 経路全体の標高グラフを描画します。
  * @param {number} currentDistance - 現在の移動距離 (m)
@@ -287,7 +291,7 @@ function drawElevationChart(currentDistance = 0) {
     const maxElev = Math.max(...routeElevations);
     const elevRange = maxElev - minElev;
 
-    const padding = { top: 5, bottom: 20, left: 40, right: 5 };
+    const padding = elevationChartPadding; //{ top: 5, bottom: 20, left: 40, right: 5 };
     const chartWidth = width - padding.left - padding.right;
     const chartHeight = height - padding.top - padding.bottom;
 
@@ -637,7 +641,10 @@ function updateInfoDisplay() {
     document.getElementById('dist-traveled').textContent = `${distanceTraveledKm} km`;
     document.getElementById('time-elapsed').textContent = formatTime(timeElapsed);
     document.getElementById('time-remaining').textContent = formatTime(timeRemaining);
-    document.getElementById('actual-speed').textContent = `${actualSpeedKmh.toFixed(1)} km/h`;
+    
+    const speedValue = document.getElementById('speed-value');
+    const speedValueParts = `${actualSpeedKmh.toFixed(1)}`.split('.');
+    speedValue.innerHTML = `${speedValueParts[0]}<span class="decimal-small">.${speedValueParts[1]}</span>`;
 
     if (routeElevations.length > 0 && currentPointIndex < routeElevations.length && cumulativeDistances.length > currentPointIndex) {
         const currentElevation = routeElevations[currentPointIndex];
@@ -694,14 +701,14 @@ let currentCadence = 0;
 let currentHeartRate = 0;
 let isBoostActive = false;
 let isVectorMap = false; // ベクターマップが有効かどうかのフラグ
-let showLinksControl = false; // ストリートビューのナビゲーション矢印を表示するかのフラグ
 let isTiltView = false; // チルト表示が有効かどうかのフラグ
 const BOOST_FACTOR = 1.5;
-let autoHideToolbar = true;
 let isFallbackModeActive = false; // 代替表示モードが有効かどうかのフラグ
 let savedZoomLevel; // 代替表示モードでズーム倍率をセットする前に元の値を保持
 let autoBoostThreshold = 10; // オートブーストのしきい値（%）
 let manualSpeedKmh = 0; // 手動入力の速度 (km/h)
+let gradientLimiter = 0; // 勾配リミッターの値 (%) 0は無効
+let speedLimiter = 0; // 速度リミッターの値 (km/h) 0は無効
 let actualSpeedKmh = 0; // 実際の移動速度 (km/h)
 
 let placesService, infoWindow, selectedPlace = null;
@@ -761,8 +768,8 @@ const voiceGuidanceToggle = document.getElementById('voice-guidance-toggle');
 const voiceSelect = document.getElementById('voice-select');
 const geocodeIntervalInput = document.getElementById('geocode-interval-input');
 const autoBoostThresholdInput = document.getElementById('auto-boost-threshold');
-const linksControlToggle = document.getElementById('links-control-toggle');
-const autoHideToolbarToggle = document.getElementById('auto-hide-toolbar-toggle');
+const gradientLimiterInput = document.getElementById('gradient-limiter-input');
+const speedLimiterInput = document.getElementById('speed-limiter-input');
 const hideToolbarButton = document.getElementById('hide-toolbar-button');
 const originInput = document.getElementById('origin-input');
 const splitContainer = document.getElementById('split-container');
@@ -779,7 +786,7 @@ let ratioButtons;
 const controlsArea = document.querySelector('.controls-area');
 const mainContainer = document.getElementById('main-container');
 
-const defaultSettings = {
+const defaultSettings = { //!!移動モードに関連づけた初期値
     'DRIVING': { speed: 50, interval: 10 },
     'BICYCLING': { speed: 20, interval: 5 }, // Google Maps標準の自転車モード
     'BICYCLING_ROAD': { speed: 20, interval: 5 }, // 高速を避けた自動車モード
@@ -1028,7 +1035,7 @@ window.addEventListener('click', (event) => {
  * @param {string} mode - ツアーモード ('DRIVING', 'BICYCLING', 'WALKING')
  */
 function setTravelMode(mode, keepValue = false) {
-    localStorage.setItem('streetMoViewTravelMode', mode); // 選択されたモードを保存
+    localStorage.setItem('streetMoViewTravelMode', mode); //選択されたモードを保存
     currentTravelMode = mode;
     travelModeButtons.forEach(btn => {
         if (btn.dataset.mode === mode) {
@@ -1063,11 +1070,6 @@ directionButtons.forEach(btn => {
     });
 });
 
-autoHideToolbarToggle.addEventListener('change', () => {
-    autoHideToolbar = autoHideToolbarToggle.checked;
-    localStorage.setItem('autoHideToolbar', autoHideToolbar);
-});
-
 hideToolbarButton.addEventListener('click', () => {
     hideToolbar();
 });
@@ -1075,17 +1077,26 @@ hideToolbarButton.addEventListener('click', () => {
 document.getElementById('street-view').addEventListener('click', () => showToolbar());
 document.getElementById('map').addEventListener('click', () => showToolbar());
 
+let toolBarHidden = false;
+
 function hideToolbar() {
     controlsArea.classList.add('hidden');
     mainContainer.classList.add('toolbar-hidden');
+    toolBarHidden = true;
+    autoHideToolbarTimer = AUTO_HIDE_TOOLBAR_SEC;
 }
 function showToolbar() {
     controlsArea.classList.remove('hidden');
     mainContainer.classList.remove('toolbar-hidden');
+    toolBarHidden = false;
+    autoHideToolbarTimer = AUTO_HIDE_TOOLBAR_SEC;
 }
 
 // 手動ブーストボタンのクリックイベント
 boostButton.addEventListener('click', () => {
+    if (autoBoostThreshold > 0 || !bleDevice || !bleDevice.gatt.connected) {
+        return; //オートブーストの設定がある場合やパワーソースに接続してない時は手動操作できない
+    }
     isBoostActive = !isBoostActive;
     boostButton.classList.toggle('active', isBoostActive);
     boostButton.title = isBoostActive ? uiStrings[currentLang].boostOn : uiStrings[currentLang].boost;
@@ -1129,10 +1140,22 @@ autoBoostThresholdInput.addEventListener('input', () => {
     }
 });
 
-linksControlToggle.addEventListener('change', () => {
-    showLinksControl = linksControlToggle.checked;
-    localStorage.setItem('showLinksControl', showLinksControl);
-    panorama.setOptions({ linksControl: showLinksControl });
+gradientLimiterInput.addEventListener('input', () => {
+    const limiter = parseInt(gradientLimiterInput.value, 10);
+    // isNaN(limiter) は空文字の場合にtrueになるので、空文字を許容する
+    if (!isNaN(limiter) && limiter >= 0) {
+        gradientLimiter = limiter;
+        localStorage.setItem('gradientLimiter', gradientLimiter);
+    }
+});
+
+speedLimiterInput.addEventListener('input', () => {
+    const limiter = parseInt(speedLimiterInput.value, 10);
+    // isNaN(limiter) は空文字の場合にtrueになるので、空文字を許容する
+    if (!isNaN(limiter) && limiter >= 0) {
+        speedLimiter = limiter;
+        localStorage.setItem('speedLimiter', speedLimiter);
+    }
 });
 
 /**
@@ -1669,7 +1692,9 @@ function catchNoPanorama() {
         startFallbackMode();
     }
 }
-
+const AUTO_HIDE_TOOLBAR_SEC = 5;
+let autoHideToolbarTimer = AUTO_HIDE_TOOLBAR_SEC;
+//!!移動しミューレーションの基幹処理updatePhysics()
 function updatePhysics() {
     const now = Date.now();
     const deltaTime = (now - lastPhysicsUpdateTime) / 1000; // 秒単位
@@ -1713,10 +1738,20 @@ function updatePhysics() {
         // 実際の移動速度を更新
         actualSpeedKmh = currentSpeedMps * 3.6;
 
+        //スピードリミッターの適用
+        actualSpeedKmh = Math.min(actualSpeedKmh, speedLimiter);
     } else {
         // パワーソースが接続されていない場合は、手動入力された速度(manualSpeedKmh)を実際の速度(actualSpeedKmh)に反映する
         actualSpeedKmh = manualSpeedKmh;
         currentSpeedMps = actualSpeedKmh / 3.6;
+    }
+    //ツアー中で時速5Km以上になっているときツールバーが表示されていたら消す
+    //TODOメニューが開いてるときは隠さないようにするべきだな
+    if (isTourRunning && actualSpeedKmh >= 5 && !toolBarHidden) {
+        autoHideToolbarTimer -= deltaTime;
+        if (autoHideToolbarTimer <= 0) {    //即座に消すと操作不能になるので５秒の猶予をつくる
+            hideToolbar();
+        }
     }
 
     // 現在の位置を計算（ログ記録のために isTourRunning の外で定義）
@@ -1915,10 +1950,9 @@ function calculateCurrentGradient(fwPointsToConsider = 3, bwPointsToConsider = 3
         return 0;
     }
 
-    const slope = numerator / denominator;
+    const slope = numerator / denominator * 100;
 
-    // 傾きをパーセンテージに変換して返す
-    return slope * 100;
+    return Math.max(-gradientLimiter , Math.min(slope, gradientLimiter));
 }
 /**
  * 指定された座標の地名を取得し、状況に応じた音声ガイダンスを再生します。
@@ -1961,7 +1995,7 @@ async function announceLocation(location, context) {
         const newFullMunicipality = sublocality ? (prefecture + locality + sublocality) : '';
 
         if (context === 'departure') {
-            const message = (uiStrings[currentLang].departingFrom || '{location}から、出発します。').replace('{location}', locationName);
+            const message = (uiStrings[currentLang].departingFrom || '{location}から 出発します。').replace('{location}', locationName);
             speak(message, currentLang === 'ja' ? 'ja-JP' : 'en-US');
             currentMunicipality = newFullMunicipality;
         } else if (context === 'moving') {
@@ -1999,7 +2033,7 @@ function handleChartClick(event) {
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
 
-    const padding = { top: 5, bottom: 20, left: 40, right: 5 };
+    const padding = elevationChartPadding;
     const chartWidth = canvas.clientWidth - padding.left - padding.right;
 
     if (x < padding.left || x > canvas.clientWidth - padding.right) {
@@ -2087,11 +2121,6 @@ async function startTour() {
         announceLocation(routePoints[currentPointIndex], 'departure');
     }
 
-    // ツールバーを自動で隠す
-    if (autoHideToolbar) {
-        hideToolbar();
-    }
-
     physicsIntervalId = setInterval(updatePhysics, PHYSICS_INTERVAL_MS);
 }
 
@@ -2153,9 +2182,6 @@ async function connectToBleDevice() {
         bleConnectButton.style.backgroundColor = '#e74c3c';
         speedInput.readOnly = true; // 速度入力を読み取り専用に
         actualSpeedKmh = 0;
-        boostButton.style.display = 'block'; // ブーストボタンを表示
-        boostButton.title = uiStrings[currentLang].boost;
-
     } catch (error) {
         console.error(`${uiStrings[currentLang].btConnectionFailed}`, error);
         showMessage(`${uiStrings[currentLang].btConnectionError}${error.message}`);
@@ -2179,7 +2205,6 @@ async function disconnectFromBleDevice() {
     bleConnectButton.style.backgroundColor = '#3498db';
     speedInput.readOnly = false; // 速度入力を編集可能に戻す
     actualSpeedKmh = 0;
-    boostButton.style.display = 'none'; // ブーストボタンを非表示
     isBoostActive = false;
     boostButton.classList.remove('active');
     document.getElementById('power-display').textContent = '0 W';
@@ -2651,7 +2676,7 @@ async function initMap() {
     searchInput.id = 'pac-input';
     searchInput.type = 'text';
     searchInput.placeholder = '場所を検索';
-    searchInput.style.cssText = 'background-color: #fff; font-family: Roboto; font-size: 15px; font-weight: 300; margin: 12px; padding: 5px 10px; width: 180px; border: 1px solid #ccc; box-shadow: 0 2px 6px rgba(0,0,0,0.3); border-radius: 3px;';
+    searchInput.style.cssText = 'background-color: rgba(255,255,255,0.8); font-family: Roboto; font-size: 15px; font-weight: 300; margin: 12px; padding: 5px 10px; width: 180px; border: 1px solid #ccc; box-shadow: 0 2px 6px rgba(0,0,0,0.3); border-radius: 3px;';
     
     const searchBox = new google.maps.places.SearchBox(searchInput);
     map.controls[google.maps.ControlPosition.TOP_LEFT].push(searchInput);
@@ -2669,7 +2694,7 @@ async function initMap() {
         motionTracking: false,      // モーショントラッキングを無効化
         motionTrackingControl: false, // モーショントラッキングボタンを非表示
         source: google.maps.StreetViewSource.DEFAULT, // 初期状態ではユーザー投稿も表示
-        linksControl: false, showLinksControl: false, // ナビゲーション矢印の表示/非表示
+        linksControl: false, // ナビゲーション矢印の表示/非表示
         clickToGo: false,
     });
 
@@ -2911,7 +2936,6 @@ async function initMap() {
             }
         }
     });
-    boostButton.addEventListener('click', () => { /* イベントリスナーは既に設定済み */ });
     logToggleButton.addEventListener('click', toggleLogging);
     hrConnectButton.addEventListener('click', connectToHrDevice);
 
@@ -3096,7 +3120,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // --- 保存された設定を読み込む ---
     const savedTravelMode = localStorage.getItem('streetMoViewTravelMode');
     if (savedTravelMode) {
-        setTravelMode(savedTravelMode, true); // UIを更新するが、速度/間隔の値は変更しない
+        setTravelMode(savedTravelMode);
     }
 
     // 初期速度を設定
@@ -3122,17 +3146,17 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     autoBoostThresholdInput.value = autoBoostThreshold;
 
-    const savedLinksControl = localStorage.getItem('showLinksControl');
-    if (savedLinksControl !== null) {
-        showLinksControl = (savedLinksControl === 'true');
+    const savedGradientLimiter = localStorage.getItem('gradientLimiter');
+    if (savedGradientLimiter !== null) {
+        gradientLimiter = parseInt(savedGradientLimiter, 10);
     }
-    linksControlToggle.checked = showLinksControl;
+    gradientLimiterInput.value = gradientLimiter;
 
-    const savedAutoHideToolbar = localStorage.getItem('autoHideToolbar');
-    if (savedAutoHideToolbar !== null) {
-        autoHideToolbar = (savedAutoHideToolbar === 'true');
+    const savedSpeedLimiter = localStorage.getItem('speedLimiter');
+    if (savedSpeedLimiter !== null) {
+        speedLimiter = parseInt(savedSpeedLimiter, 10);
     }
-    autoHideToolbarToggle.checked = autoHideToolbar;
+    speedLimiterInput.value = speedLimiter;
 
     // ---------------------------------
 
@@ -3167,3 +3191,7 @@ window.addEventListener('DOMContentLoaded', () => {
         window.location.href = 'about:blank';
     }
 });
+/*
+BUG目的地を指定しての経路検索で終点マーカーが経路のラインの最後の場所になってない
+
+*/
