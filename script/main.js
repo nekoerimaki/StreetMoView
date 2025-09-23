@@ -1475,7 +1475,7 @@ async function calculateAndDisplayRoute() {
             // overview_pathの代わりに、より詳細なstepsのpathを連結して使用する
             const detailedPath = routeResponse.routes[0].legs.flatMap(leg => leg.steps.flatMap(step => step.path));
             directionsRenderer.setDirections(routeResponse);
-            const routeDistance = routeResponse.routes[0].legs[0].distance.value;
+            //const routeDistance = routeResponse.routes[0].legs[0].distance.value;
 
             const interpolatedPath = [];
             routeElevations = [];
@@ -1483,23 +1483,24 @@ async function calculateAndDisplayRoute() {
             const API_LIMIT = 512;
             let cumulativeDistance = 0;
             let startChunk = 0;
-            let chunkLength = 0;
+            //let chunkLength = 0;
             let previousPath = detailedPath[0];
             for (let i = 1; i < detailedPath.length; i++) {
-                chunkLength++;
+                const chunkLength = i - startChunk + 1;//chunkLength++;
                 cumulativeDistance += google.maps.geometry.spherical.computeDistanceBetween(previousPath, detailedPath[i]);
                 previousPath = detailedPath[i];
                 let sliceLength = 0;
                 let sampleLength = 0;
+                const isLastChunk = (i === detailedPath.length - 1);
                 if (cumulativeDistance > API_LIMIT * interpolationInterval) {
-                    sliceLength = i - startChunk;
+                    sliceLength = chunkLength; //i - startChunk;
                     sampleLength = API_LIMIT; 
                 }
                 else if (chunkLength === API_LIMIT) { // detailedPathの解像度がinterpolationIntervalより小さい傾向
                     sliceLength = API_LIMIT;
                     sampleLength = API_LIMIT; 
-                } else if (i === detailedPath.length - 1) { // 最後のチャンク
-                    sliceLength = i - startChunk;
+                } else if (isLastChunk) { // 最後のチャンク
+                    sliceLength = chunkLength;  //i - startChunk;
                     sampleLength = Math.max(sliceLength, Math.trunc(cumulativeDistance / interpolationInterval));
                 }    
                 if (sliceLength > 0) {
@@ -1507,15 +1508,15 @@ async function calculateAndDisplayRoute() {
                     const elevationResponse = await elevationService.getElevationAlongPath({
                         path: chunkPath,
                         samples: sampleLength });
-                    chunkLength = 0;
-                    startChunk = i;
-                    cumulativeDistance = 0;
-
-                    for (let j = 0; j < elevationResponse.results.length; j++) {
+                    //最後のチャンクでなけれ次のチャンクの開始点が追加されるのでばこのチャンク終了点は追加しない
+                    const pushLength = elevationResponse.results.length - (isLastChunk ? 0 : 1);
+                    for (let j = 0; j < pushLength; j++) {
                         interpolatedPath.push(elevationResponse.results[j].location);
                         routeElevations.push(elevationResponse.results[j].elevation);
                     }
-
+                    //chunkLength = 0;
+                    startChunk = i;
+                    cumulativeDistance = 0;
                 }
             }
             await processRoute(interpolatedPath, routeElevations.length > 0);
