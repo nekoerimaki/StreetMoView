@@ -90,6 +90,7 @@ const uiStrings = {
         homeSet: 'ホーム地点を設定しました。次回起動時にこの場所から開始します。',
         boost: 'ブースト',
         municipalityGuidance: '{municipality}を移動中です。',
+        roadGuidance: '{road}を走行中です。',
         settings: '設定',
         voiceGuidance: '地名アナウンス',
         departingFrom: '{location}から 出発します。',
@@ -193,6 +194,7 @@ const uiStrings = {
         homeSet: 'Home location set. The app will start here next time.',
         boost: 'Boost',
         municipalityGuidance: 'Now passing through {municipality}.',
+        roadGuidance: 'Now on {road}.',
         settings: 'Settings',
         voiceGuidance: 'Location Announcement',
         departingFrom: 'Departing from {location}.',
@@ -717,6 +719,9 @@ let originLatLng = null, destinationLatLng = null;
 
 // 場所検索モーダル用
 // 出発地・目的地のオートコンプリート用
+let currentRoadName = ''; // 現在の道路名を保持
+let distanceOnCurrentRoad = 0; // 現在の道路を走行した距離
+const ROAD_ANNOUNCE_INTERVAL = 500; //!! 道路名を再アナウンスする間隔 (m)
 let originAutocomplete, destinationAutocomplete;
 
 
@@ -1764,6 +1769,11 @@ function updatePhysics() {
         distanceTraveled += deltaDistance; // 実際に走行した距離も加算
         distanceSinceLastGeocode += deltaDistance;
         distanceSinceLastSvUpdate += deltaDistance;
+        // 道路名アナウンス用の距離も加算
+        if (distanceOnCurrentRoad > 0) {
+            distanceOnCurrentRoad += deltaDistance;
+        }
+
 
         if (currentPositionDistance >= totalDistance) {
             currentPositionDistance = totalDistance;
@@ -1955,7 +1965,7 @@ function calculateCurrentGradient(fwPointsToConsider = 3, bwPointsToConsider = 3
     return Math.max(-gradientLimiter , Math.min(slope, gradientLimiter));
 }
 /**
- * 指定された座標の地名を取得し、状況に応じた音声ガイダンスを再生します。
+ * //!!指定された座標の地名を取得し、状況に応じた音声ガイダンスを再生します。
  * @param {google.maps.LatLng} location - 確認する場所の座標
  * @param {'departure' | 'moving' | 'arrival'} context - 'departure' (出発時), 'moving' (移動中), 'arrival' (到着時)
  */
@@ -1969,12 +1979,13 @@ async function announceLocation(location, context) {
         console.log('Geocoding Result:', results[0]?.formatted_address, results[0]?.address_components);
 
         const addressComponents = results[0].address_components;
-        let prefecture = '', locality = '', sublocality = '';
+        let prefecture = '', locality = '', sublocality = '', routeName = '';
 
         for (const component of addressComponents) {
             if (component.types.includes('administrative_area_level_1')) {
                 prefecture = component.long_name;
             }
+            if (component.types.includes('route')) { routeName = component.long_name; }
             if (locality === '' && component.types.includes('locality')) {
                 locality = component.long_name;
             }
@@ -1985,7 +1996,6 @@ async function announceLocation(location, context) {
                 sublocality = component.long_name;
             }
         }
-        if (locality === '' && sublocality === '') return; // アナウンスに必要な地名がなければ終了
         const locationName = locality + ' ' + sublocality.trim();
 
         if (mapSearchInput && mapSearchInput.value !== locationName) {
@@ -1993,6 +2003,7 @@ async function announceLocation(location, context) {
         }
 
         const newFullMunicipality = sublocality ? (prefecture + locality + sublocality) : '';
+        let announced = false; // この呼び出しで何かアナウンスしたか
 
         if (context === 'departure') {
             const message = (uiStrings[currentLang].departingFrom || '{location}から 出発します。').replace('{location}', locationName);
@@ -2000,15 +2011,32 @@ async function announceLocation(location, context) {
             currentMunicipality = newFullMunicipality;
         } else if (context === 'moving') {
             // 「町」レベルの地名が取得できた場合のみ比較・アナウンス
-            if (newFullMunicipality && newFullMunicipality !== currentMunicipality) {
+            if (newFullMunicipality && newFullMunicipality !== currentMunicipality && (locality !== '' || sublocality !== '')) {
 
                 if (currentMunicipality !== '') { // 初回はメッセージを表示しない
                     const messageTemplate = uiStrings[currentLang].municipalityGuidance || '{municipality}を、移動中です。';
                     const message = messageTemplate.replace('{municipality}', locationName);
                     showMessage(message, false); // 緑色のメッセージボックス
                     speak(message, currentLang === 'ja' ? 'ja-JP' : 'en-US');
+                    announced = true;
                 }
                 currentMunicipality = newFullMunicipality;
+            }
+
+            // 地名アナウンスがなかった場合、道路名アナウンスを試みる
+            if (!announced && routeName) {
+                if (routeName !== currentRoadName) {
+                    currentRoadName = routeName;
+                    console.log(`reset currentRoadName: ${currentRoadName}`);
+                    distanceOnCurrentRoad = 0; // 新しい道路に入ったので距離をリセット
+                }
+                console.log(`${currentRoadName} distanceOnCurrentRoad: ${distanceOnCurrentRoad}`);
+
+                if (distanceOnCurrentRoad === 0 || distanceOnCurrentRoad >= ROAD_ANNOUNCE_INTERVAL) {
+                    const message = (uiStrings[currentLang].roadGuidance || '{road}を走行中です。').replace('{road}', routeName);
+                    speak(message, currentLang === 'ja' ? 'ja-JP' : 'en-US');
+                    distanceOnCurrentRoad = 1; // アナウンスしたので0からリセット(1にすることで次回以降の判定を>=にする)
+                }
             }
         } else if (context === 'arrival') {
             const message = (uiStrings[currentLang].arrivedAt || '{location}に、到着しました。おつかれさまでした。').replace('{location}', locationName);
