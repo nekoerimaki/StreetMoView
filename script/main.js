@@ -8,7 +8,7 @@ const uiStrings = {
         routeSettings: '経路設定',
         originPlaceholder: '出発地: 例. 東京駅',
         destinationPlaceholder: '目的地: 例. 渋谷スクランブル交差点',
-        driving: '自動車',                
+        driving: '自動車',
         bicycling_road: '自転車(車道)',
         bicycling: '自転車',
         walking: '徒歩',
@@ -408,8 +408,8 @@ function smoothElevationsByGradient(pointsData, samplingInterval = 50, maxGradie
             correctedPoints[i + 1].elevation = currentPoint.elevation;
         }
         else if (i < (correctedPoints.length - 2)) {
-        // 次と、次の次のポイントとの勾配が大きな下り勾配になるときも次のポイントの標高を現在のポイントに合わせる
-        // →トンネル出口のスパイクをなくす為
+            // 次と、次の次のポイントとの勾配が大きな下り勾配になるときも次のポイントの標高を現在のポイントに合わせる
+            // →トンネル出口のスパイクをなくす為
             const nextPoint2 = correctedPoints[i + 2];
             const distanceDiff2 = nextPoint2.distance - nextPoint.distance;
             const elevationDiff2 = nextPoint2.elevation - nextPoint.elevation;
@@ -445,10 +445,10 @@ function applyMovingAverage(pointsData, windowSize) {
         const start = Math.max(0, i - halfWindow);
         const end = Math.min(pointsData.length, i + halfWindow + 1);
         const windowSlice = elevations.slice(start, end);
-        
+
         const sum = windowSlice.reduce((acc, val) => acc + val, 0);
         const average = sum / windowSlice.length;
-        
+
         smoothedPoints[i].elevation = average;
     }
 
@@ -484,7 +484,7 @@ function correctAnomalyElevation(pointsData, maxGradient = 20) {
                 minGradientAS = maxGradientAS;
                 indexMinGradientAS = -1;
                 continue;
-            } 
+            }
         }
         else {
             const startAnomalyDistance = correctedPoints[startOfAnomaly].distance; //異常勾配の始点からの距離
@@ -543,10 +543,10 @@ function getDistance(p1, p2) {
     const Δφ = (p2.lat() - p1.lat()) * Math.PI / 180;
     const Δλ = (p2.lng() - p1.lng()) * Math.PI / 180;
 
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) *
+        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c;
 }
@@ -564,10 +564,10 @@ function getDistanceP(p1lat, p1lng, p2lat, p2lng) {
     const Δφ = (p2lat - p1lat) * Math.PI / 180;
     const Δλ = (p2lng - p1lng) * Math.PI / 180;
 
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) *
+        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c;
 }
@@ -643,7 +643,7 @@ function updateInfoDisplay() {
     document.getElementById('dist-traveled').textContent = `${distanceTraveledKm} km`;
     document.getElementById('time-elapsed').textContent = formatTime(timeElapsed);
     document.getElementById('time-remaining').textContent = formatTime(timeRemaining);
-    
+
     const speedValue = document.getElementById('speed-value');
     const speedValueParts = `${actualSpeedKmh.toFixed(1)}`.split('.');
     speedValue.innerHTML = `${speedValueParts[0]}<span class="decimal-small">.${speedValueParts[1]}</span>`;
@@ -668,10 +668,10 @@ function updateInfoDisplay() {
     // グラフを更新
     drawElevationChart(currentPositionDistance);
 }
-
+//!!グローバル変数・定数
 let map, panorama;
 let directionsService, directionsRenderer, elevationService, streetViewService, streetViewCoverageLayer;
-let routePoints = [];        
+let routePoints = [];
 let routeElevations = [];
 let gpxRoutePolyline = null;
 let cumulativeDistances = [];
@@ -721,9 +721,8 @@ let originLatLng = null, destinationLatLng = null;
 // 出発地・目的地のオートコンプリート用
 let currentRoadName = ''; // 現在の道路名を保持
 let distanceOnCurrentRoad = 0; // 現在の道路を走行した距離
-const ROAD_ANNOUNCE_INTERVAL = 500; //!! 道路名を再アナウンスする間隔 (m)
+const ROAD_ANNOUNCE_INTERVAL = 1000; //PIN 道路名を再アナウンスする間隔 (m)
 let originAutocomplete, destinationAutocomplete;
-
 
 let currentMunicipality = ''; // 現在の市区町村名を保持
 let distanceSinceLastGeocode = 0; // 最後のジオコードからの距離
@@ -786,7 +785,7 @@ let mapSearchInput = null;
 const directionButtons = document.querySelectorAll('#direction-control-overlay button');
 const speedInput = document.getElementById('speed-input');
 const travelModeButtons = document.querySelectorAll('#travel-mode-switcher button');
-let fullscreenButton;        let currentTravelMode = 'BICYCLING';
+let fullscreenButton; let currentTravelMode = 'BICYCLING';
 let ratioButtons;
 const controlsArea = document.querySelector('.controls-area');
 const mainContainer = document.getElementById('main-container');
@@ -797,7 +796,7 @@ const defaultSettings = { //!!移動モードに関連づけた初期値
     'BICYCLING_ROAD': { speed: 20, interval: 5 }, // 高速を避けた自動車モード
     'WALKING': { speed: 5, interval: 3 }
 };
-
+const TILT_ANGLE = 67.5;    //最大値。ズームアウトすると小さくなる
 /**
  * ストリートビューとマップの分割比率を設定します。
  * @param {string} ratio - "sv:map" 形式の比率文字列 (例: "7:3")
@@ -906,26 +905,26 @@ let vvoxEngine; // TTSエンジンインスタンスを保持する変数
 
 function populateVoiceList() {
     if (!vvoxEngine || !vvoxEngine.isAvailable) {
-    if (typeof speechSynthesis === 'undefined') { return; }
-    voices = speechSynthesis.getVoices().filter(voice => voice.lang.startsWith(currentLang));
-    voiceSelect.innerHTML = '';
-    if (voices.length > 0) {
-        voices.forEach(voice => {
-            const option = document.createElement('option');
-            option.textContent = `${voice.name} (${voice.lang})`;
-            option.setAttribute('data-name', voice.name);
-            voiceSelect.appendChild(option);
-        });
-        voiceSelect.disabled = false;
-        // 保存された音声を選択 (言語が変わっても対応できるように)
-        const savedVoiceName = localStorage.getItem('selectedVoiceName');
-        if (savedVoiceName) {
-            const savedOption = Array.from(voiceSelect.options).find(opt => opt.getAttribute('data-name') === savedVoiceName);
-            if (savedOption) savedOption.selected = true;
+        if (typeof speechSynthesis === 'undefined') { return; }
+        voices = speechSynthesis.getVoices().filter(voice => voice.lang.startsWith(currentLang));
+        voiceSelect.innerHTML = '';
+        if (voices.length > 0) {
+            voices.forEach(voice => {
+                const option = document.createElement('option');
+                option.textContent = `${voice.name} (${voice.lang})`;
+                option.setAttribute('data-name', voice.name);
+                voiceSelect.appendChild(option);
+            });
+            voiceSelect.disabled = false;
+            // 保存された音声を選択 (言語が変わっても対応できるように)
+            const savedVoiceName = localStorage.getItem('selectedVoiceName');
+            if (savedVoiceName) {
+                const savedOption = Array.from(voiceSelect.options).find(opt => opt.getAttribute('data-name') === savedVoiceName);
+                if (savedOption) savedOption.selected = true;
+            }
+        } else {
+            voiceSelect.disabled = true;
         }
-    } else {
-        voiceSelect.disabled = true;
-    }
     }
 }
 
@@ -1053,7 +1052,7 @@ function setTravelMode(mode, keepValue = false) {
         intervalInput.value = defaultSettings[mode].interval;
         speedInput.value = defaultSettings[mode].speed;
     }
-    
+
 }
 
 travelModeButtons.forEach(btn => {
@@ -1187,7 +1186,7 @@ function resetTourState() {
         gpxRoutePolyline = null;
     }
     routePoints = [];
-    routeElevations = [];            
+    routeElevations = [];
     totalDistance = 0;
     currentPositionDistance = 0;
     if (!isLogging) {
@@ -1209,7 +1208,7 @@ function resetTourState() {
 }
 
 /**
- * 経路データを処理し、マップとストリートビューを初期化します。
+ * //!!経路データを処理し、マップとストリートビューを初期化します。
  * @param {google.maps.LatLng[]} path - 経路の座標の配列
  * @param {Array<{location: google.maps.LatLng, elevation: number}>} [gpxElevationData=null] - GPXから読み込んだ標高データ（オプション）
  */
@@ -1235,116 +1234,116 @@ async function processRoute(path, gpxElevationAvailable = false) {
         if (gpxElevationAvailable) {
             console.log("Using elevation data from GPX file.");
         } else {
-        // 1. 経路長に応じてサンプリング距離を動的に決定する
-        // const minSamplingDistance = 25;  // 最小サンプリング距離 (m)
-        // const maxSamplingDistance = 150; // 最大サンプリング距離 (m)
-        // let samplingDistance = (totalDistance >= 1000) ? (totalDistance * 0.025) : minSamplingDistance;
-        // samplingDistance = Math.min(samplingDistance, maxSamplingDistance);
+            // 1. 経路長に応じてサンプリング距離を動的に決定する
+            // const minSamplingDistance = 25;  // 最小サンプリング距離 (m)
+            // const maxSamplingDistance = 150; // 最大サンプリング距離 (m)
+            // let samplingDistance = (totalDistance >= 1000) ? (totalDistance * 0.025) : minSamplingDistance;
+            // samplingDistance = Math.min(samplingDistance, maxSamplingDistance);
 
-        const interpolationInterval = parseFloat(intervalInput.value, 10);
-        const samplingDistance = interpolationInterval * 10;
+            const interpolationInterval = parseFloat(intervalInput.value, 10);
+            const samplingDistance = interpolationInterval * 10;
 
-        sampledPointsData = [{ point: path[0], distance: 0 }];
-        let distanceSinceLastSample = 0;
-        for (let i = 1; i < path.length; i++) {
-            const dist = cumulativeDistances[i] - cumulativeDistances[i-1];
-            distanceSinceLastSample += dist;
-            if (distanceSinceLastSample >= samplingDistance) {
-                sampledPointsData.push({ point: path[i], distance: cumulativeDistances[i] });
-                distanceSinceLastSample = 0;
-            }
-        }
-        // 最後のポイントがサンプリングされていない場合、追加する
-        // 最後のポイントへの残り間隔がサンプリング間隔の半分より短いときは追加でなく書き換え
-        const lastSampledDistance = sampledPointsData[sampledPointsData.length - 1].distance;
-        if (lastSampledDistance < totalDistance) {
-            if ((totalDistance - lastSampledDistance) < (samplingDistance / 2)) {
-                sampledPointsData[sampledPointsData.length - 1].point = path[path.length - 1];
-                sampledPointsData[sampledPointsData.length - 1].distance = totalDistance;
-            }
-            else {
-                sampledPointsData.push({ point: path[path.length - 1], distance: totalDistance });
-            }
-        }
-
-        // 2. サンプリングした点の標高を取得
-        const sampledPoints = sampledPointsData.map(d => d.point);
-        const sampleLimit = 512; // APIの上限
-        let allElevationResults = [];
-
-        for (let i = 0; i < sampledPoints.length; i += sampleLimit) {
-            const chunk = sampledPoints.slice(i, i + sampleLimit);
-            const { results: chunkResults } = await elevationService.getElevationForLocations({
-                locations: chunk,
-            });
-            if (!chunkResults || chunkResults.length !== chunk.length) {
-                const errorMessage = chunkResults ? `Expected ${chunk.length} results but got ${chunkResults.length}.` : 'No results from API.';
-                throw new Error(`Elevation fetch error in chunk [${i}-${i+chunk.length-1}]: ${errorMessage}`);
-            }
-            allElevationResults = allElevationResults.concat(chunkResults);
-        }
-
-        if (allElevationResults.length !== sampledPoints.length) {
-            throw new Error('Failed to get elevation for all sampled points.');
-        }
-        sampledPointsData.forEach((data, i) => {
-            data.elevation = allElevationResults[i].elevation;
-        });
-
-        // 移動平均法による一般的なスムージングを適用
-        // const smoothingWindowSize = 5; // スムージング強度（奇数を推奨）
-        // const trimRatio = 2; // 上下から除外する割合（例: 0.2 = 上下20%ずつ除外）
-        // sampledPointsData = applyMovingAverage(sampledPointsData, smoothingWindowSize, trimRatio);
-
-        if (currentTravelMode !== 'WALKING') {
-            // 徒歩は以外では勾配によるフィルタリング
-            console.log(`Applying elevation smoothing`);
-            sampledPointsData = correctAnomalyElevation(sampledPointsData, 25);
-        }
-                        // 3. 元の経路の各点の標高を計算する
-        routeElevations = new Array(path.length);
-
-        // サンプリングされた点が2つ未満の場合（経路が非常に短い場合など）、
-        // 全ポイントを最初の点の標高にするか、0で埋める
-        if (sampledPointsData.length < 2) {
-            const singleElevation = sampledPointsData.length === 1 ? sampledPointsData[0].elevation : 0;
-            routeElevations.fill(singleElevation);
-        } else {
-            // 線形補間で各点の標高を計算
-            let currentSegmentIndex = 0;
-            for (let i = 0; i < path.length; i++) {
-                const pointDistance = cumulativeDistances[i];
-                // 現在の点がどの補間セグメントに属するかを見つける
-                while (currentSegmentIndex < sampledPointsData.length - 2 && pointDistance > sampledPointsData[currentSegmentIndex + 1].distance) {
-                    currentSegmentIndex++;
+            sampledPointsData = [{ point: path[0], distance: 0 }];
+            let distanceSinceLastSample = 0;
+            for (let i = 1; i < path.length; i++) {
+                const dist = cumulativeDistances[i] - cumulativeDistances[i - 1];
+                distanceSinceLastSample += dist;
+                if (distanceSinceLastSample >= samplingDistance) {
+                    sampledPointsData.push({ point: path[i], distance: cumulativeDistances[i] });
+                    distanceSinceLastSample = 0;
                 }
-                const startSample = sampledPointsData[currentSegmentIndex];
-                const endSample = sampledPointsData[currentSegmentIndex + 1];
-                const segmentDistance = endSample.distance - startSample.distance;
-                const distanceIntoSegment = pointDistance - startSample.distance;
-                const fraction = (segmentDistance > 0) ? distanceIntoSegment / segmentDistance : 0;
-                const interpolatedElevation = startSample.elevation + (endSample.elevation - startSample.elevation) * Math.max(0, Math.min(1, fraction));
-                routeElevations[i] = interpolatedElevation;
             }
-        }
+            // 最後のポイントがサンプリングされていない場合、追加する
+            // 最後のポイントへの残り間隔がサンプリング間隔の半分より短いときは追加でなく書き換え
+            const lastSampledDistance = sampledPointsData[sampledPointsData.length - 1].distance;
+            if (lastSampledDistance < totalDistance) {
+                if ((totalDistance - lastSampledDistance) < (samplingDistance / 2)) {
+                    sampledPointsData[sampledPointsData.length - 1].point = path[path.length - 1];
+                    sampledPointsData[sampledPointsData.length - 1].distance = totalDistance;
+                }
+                else {
+                    sampledPointsData.push({ point: path[path.length - 1], distance: totalDistance });
+                }
+            }
+
+            // 2. サンプリングした点の標高を取得
+            const sampledPoints = sampledPointsData.map(d => d.point);
+            const sampleLimit = 512; // APIの上限
+            let allElevationResults = [];
+
+            for (let i = 0; i < sampledPoints.length; i += sampleLimit) {
+                const chunk = sampledPoints.slice(i, i + sampleLimit);
+                const { results: chunkResults } = await elevationService.getElevationForLocations({
+                    locations: chunk,
+                });
+                if (!chunkResults || chunkResults.length !== chunk.length) {
+                    const errorMessage = chunkResults ? `Expected ${chunk.length} results but got ${chunkResults.length}.` : 'No results from API.';
+                    throw new Error(`Elevation fetch error in chunk [${i}-${i + chunk.length - 1}]: ${errorMessage}`);
+                }
+                allElevationResults = allElevationResults.concat(chunkResults);
+            }
+
+            if (allElevationResults.length !== sampledPoints.length) {
+                throw new Error('Failed to get elevation for all sampled points.');
+            }
+            sampledPointsData.forEach((data, i) => {
+                data.elevation = allElevationResults[i].elevation;
+            });
+
+            // 移動平均法による一般的なスムージングを適用
+            // const smoothingWindowSize = 5; // スムージング強度（奇数を推奨）
+            // const trimRatio = 2; // 上下から除外する割合（例: 0.2 = 上下20%ずつ除外）
+            // sampledPointsData = applyMovingAverage(sampledPointsData, smoothingWindowSize, trimRatio);
+
+            if (currentTravelMode !== 'WALKING') {
+                // 徒歩は以外では勾配によるフィルタリング
+                console.log(`Applying elevation smoothing`);
+                sampledPointsData = correctAnomalyElevation(sampledPointsData, 25);
+            }
+            // 3. 元の経路の各点の標高を計算する
+            routeElevations = new Array(path.length);
+
+            // サンプリングされた点が2つ未満の場合（経路が非常に短い場合など）、
+            // 全ポイントを最初の点の標高にするか、0で埋める
+            if (sampledPointsData.length < 2) {
+                const singleElevation = sampledPointsData.length === 1 ? sampledPointsData[0].elevation : 0;
+                routeElevations.fill(singleElevation);
+            } else {
+                // 線形補間で各点の標高を計算
+                let currentSegmentIndex = 0;
+                for (let i = 0; i < path.length; i++) {
+                    const pointDistance = cumulativeDistances[i];
+                    // 現在の点がどの補間セグメントに属するかを見つける
+                    while (currentSegmentIndex < sampledPointsData.length - 2 && pointDistance > sampledPointsData[currentSegmentIndex + 1].distance) {
+                        currentSegmentIndex++;
+                    }
+                    const startSample = sampledPointsData[currentSegmentIndex];
+                    const endSample = sampledPointsData[currentSegmentIndex + 1];
+                    const segmentDistance = endSample.distance - startSample.distance;
+                    const distanceIntoSegment = pointDistance - startSample.distance;
+                    const fraction = (segmentDistance > 0) ? distanceIntoSegment / segmentDistance : 0;
+                    const interpolatedElevation = startSample.elevation + (endSample.elevation - startSample.elevation) * Math.max(0, Math.min(1, fraction));
+                    routeElevations[i] = interpolatedElevation;
+                }
+            }
 
         }
 
-    
 
-    const halfWindow = 10;
 
-    for (let i = 0; i < routeElevations.length; i++) {
-        const start = Math.max(0, i - halfWindow);
-        const end = Math.min(routeElevations.length, i + halfWindow + 1);
-        const windowSlice = routeElevations.slice(start, end);
-        
-        const sum = windowSlice.reduce((acc, val) => acc + val, 0);
-        const average = sum / windowSlice.length;
-        
-        routeElevations[i] = average;
-    }
-            console.log("applied Moving Average");
+        const halfWindow = 10;
+
+        for (let i = 0; i < routeElevations.length; i++) {
+            const start = Math.max(0, i - halfWindow);
+            const end = Math.min(routeElevations.length, i + halfWindow + 1);
+            const windowSlice = routeElevations.slice(start, end);
+
+            const sum = windowSlice.reduce((acc, val) => acc + val, 0);
+            const average = sum / windowSlice.length;
+
+            routeElevations[i] = average;
+        }
+        console.log("applied Moving Average");
 
         showMessage(uiStrings[currentLang].elevationProcessed, false);
     } catch (error) {
@@ -1430,7 +1429,7 @@ async function processRoute(path, gpxElevationAvailable = false) {
 }
 
 /**
- * ユーザー入力に基づいて経路を計算し表示します。
+ * //!!ユーザー入力に基づいて経路を計算し表示します。
  */
 async function calculateAndDisplayRoute() {
     resetTourState();
@@ -1449,8 +1448,8 @@ async function calculateAndDisplayRoute() {
     }
 
     // BICYCLING_ROADはAPIリクエスト時にはDRIVINGとして扱う
-    const apiTravelMode = currentTravelMode === 'BICYCLING_ROAD' 
-        ? google.maps.TravelMode.DRIVING 
+    const apiTravelMode = currentTravelMode === 'BICYCLING_ROAD'
+        ? google.maps.TravelMode.DRIVING
         : google.maps.TravelMode[currentTravelMode];
 
     const request = {
@@ -1468,13 +1467,17 @@ async function calculateAndDisplayRoute() {
     try {
         const routeResponse = await directionsService.route(request);
         if (routeResponse.status === 'OK') {
-        // 経路の色を赤に変更 (既に適用済みですが、確認のため記載)
+            // 経路の色を赤に変更 (既に適用済みですが、確認のため記載)
             directionsRenderer.setOptions({
                 polylineOptions: { strokeColor: '#e74c3c', strokeWeight: 5, strokeOpacity: 0.8 }
             });
             // overview_pathの代わりに、より詳細なstepsのpathを連結して使用する
             const detailedPath = routeResponse.routes[0].legs.flatMap(leg => leg.steps.flatMap(step => step.path));
-            directionsRenderer.setDirections(routeResponse);
+
+            if (detailedPath.length < 2) {
+                showMessage(uiStrings[currentLang].routeNotFound);
+                return;
+            }
             //const routeDistance = routeResponse.routes[0].legs[0].distance.value;
 
             const interpolatedPath = [];
@@ -1483,7 +1486,6 @@ async function calculateAndDisplayRoute() {
             const API_LIMIT = 512;
             let cumulativeDistance = 0;
             let startChunk = 0;
-            //let chunkLength = 0;
             let previousPath = detailedPath[0];
             for (let i = 1; i < detailedPath.length; i++) {
                 const chunkLength = i - startChunk + 1;//chunkLength++;
@@ -1494,38 +1496,110 @@ async function calculateAndDisplayRoute() {
                 const isLastChunk = (i === detailedPath.length - 1);
                 if (cumulativeDistance > API_LIMIT * interpolationInterval) {
                     sliceLength = chunkLength; //i - startChunk;
-                    sampleLength = API_LIMIT; 
+                    sampleLength = API_LIMIT;
                 }
                 else if (chunkLength === API_LIMIT) { // detailedPathの解像度がinterpolationIntervalより小さい傾向
                     sliceLength = API_LIMIT;
-                    sampleLength = API_LIMIT; 
+                    sampleLength = API_LIMIT;
                 } else if (isLastChunk) { // 最後のチャンク
                     sliceLength = chunkLength;  //i - startChunk;
                     sampleLength = Math.max(sliceLength, Math.trunc(cumulativeDistance / interpolationInterval));
-                }    
+                }
                 if (sliceLength > 0) {
                     const chunkPath = detailedPath.slice(startChunk, startChunk + sliceLength);
-                    const elevationResponse = await elevationService.getElevationAlongPath({
-                        path: chunkPath,
-                        samples: sampleLength });
-                    //最後のチャンクでなけれ次のチャンクの開始点が追加されるのでばこのチャンク終了点は追加しない
-                    const pushLength = elevationResponse.results.length - (isLastChunk ? 0 : 1);
-                    for (let j = 0; j < pushLength; j++) {
-                        interpolatedPath.push(elevationResponse.results[j].location);
-                        routeElevations.push(elevationResponse.results[j].elevation);
+
+                    try {
+                        const elevationResponse = await elevationService.getElevationAlongPath({
+                            path: chunkPath,
+                            samples: sampleLength
+                        });
+                        //最後のチャンクでなけれ次のチャンクの開始点が追加されるのでばこのチャンク終了点は追加しない
+                        const pushLength = elevationResponse.results.length - (isLastChunk ? 0 : 1);
+
+                        for (let j = 0; j < pushLength; j++) {
+                            interpolatedPath.push(elevationResponse.results[j].location);
+                            routeElevations.push(elevationResponse.results[j].elevation);
+                        }
+                        startChunk = i;
+                        cumulativeDistance = 0;
                     }
-                    //chunkLength = 0;
-                    startChunk = i;
-                    cumulativeDistance = 0;
+                    catch (e) {
+                        console.error(e);
+                        showMessage(uiStrings[currentLang].routeNotFound);
+                    }
+
                 }
             }
+            directionsRenderer.setDirections(routeResponse);
             await processRoute(interpolatedPath, routeElevations.length > 0);
         }
     }
-    catch(e) {
+    catch (e) {
         console.error(e);
         showMessage(uiStrings[currentLang].routeNotFound);
     }
+
+    // try {
+    //     const routeResponse = await directionsService.route(request);
+    //     if (routeResponse.status === 'OK') {
+    //     // 経路の色を赤に変更 (既に適用済みですが、確認のため記載)
+    //         directionsRenderer.setOptions({
+    //             polylineOptions: { strokeColor: '#e74c3c', strokeWeight: 5, strokeOpacity: 0.8 }
+    //         });
+    //         // overview_pathの代わりに、より詳細なstepsのpathを連結して使用する
+    //         const detailedPath = routeResponse.routes[0].legs.flatMap(leg => leg.steps.flatMap(step => step.path));
+    //         directionsRenderer.setDirections(routeResponse);
+    //         //const routeDistance = routeResponse.routes[0].legs[0].distance.value;
+
+    //         const interpolatedPath = [];
+    //         routeElevations = [];
+
+    //         const API_LIMIT = 512;
+    //         let cumulativeDistance = 0;
+    //         let startChunk = 0;
+    //         //let chunkLength = 0;
+    //         let previousPath = detailedPath[0];
+    //         for (let i = 1; i < detailedPath.length; i++) {
+    //             const chunkLength = i - startChunk + 1;//chunkLength++;
+    //             cumulativeDistance += google.maps.geometry.spherical.computeDistanceBetween(previousPath, detailedPath[i]);
+    //             previousPath = detailedPath[i];
+    //             let sliceLength = 0;
+    //             let sampleLength = 0;
+    //             const isLastChunk = (i === detailedPath.length - 1);
+    //             if (cumulativeDistance > API_LIMIT * interpolationInterval) {
+    //                 sliceLength = chunkLength; //i - startChunk;
+    //                 sampleLength = API_LIMIT; 
+    //             }
+    //             else if (chunkLength === API_LIMIT) { // detailedPathの解像度がinterpolationIntervalより小さい傾向
+    //                 sliceLength = API_LIMIT;
+    //                 sampleLength = API_LIMIT; 
+    //             } else if (isLastChunk) { // 最後のチャンク
+    //                 sliceLength = chunkLength;  //i - startChunk;
+    //                 sampleLength = Math.max(sliceLength, Math.trunc(cumulativeDistance / interpolationInterval));
+    //             }    
+    //             if (sliceLength > 0) {
+    //                 const chunkPath = detailedPath.slice(startChunk, startChunk + sliceLength);
+    //                 const elevationResponse = await elevationService.getElevationAlongPath({
+    //                     path: chunkPath,
+    //                     samples: sampleLength });
+    //                 //最後のチャンクでなけれ次のチャンクの開始点が追加されるのでばこのチャンク終了点は追加しない
+    //                 const pushLength = elevationResponse.results.length - (isLastChunk ? 0 : 1);
+    //                 for (let j = 0; j < pushLength; j++) {
+    //                     interpolatedPath.push(elevationResponse.results[j].location);
+    //                     routeElevations.push(elevationResponse.results[j].elevation);
+    //                 }
+    //                 //chunkLength = 0;
+    //                 startChunk = i;
+    //                 cumulativeDistance = 0;
+    //             }
+    //         }
+    //         await processRoute(interpolatedPath, routeElevations.length > 0);
+    //     }
+    // }
+    // catch(e) {
+    //     console.error(e);
+    //     showMessage(uiStrings[currentLang].routeNotFound);
+    // }
 
 }
 
@@ -1604,7 +1678,7 @@ gpxFileInput.addEventListener('change', (event) => {
                 strokeWeight: 5
             });
             gpxRoutePolyline.setMap(map);
-            
+
             processRoute(interpolatedPath, hasElevationData);
         } catch (error) {
             showMessage(uiStrings[currentLang].gpxParseError);
@@ -1625,8 +1699,8 @@ function startFallbackMode() {
 
     if (isVectorMap) {
         savedZoomLevel = map.getZoom();
-        map.setTilt(80);
-        map.setZoom(22);
+        map.setZoom(25);    //最大２２程度との事。見ているマップの解像度により変化する。先にズームインすれば最大のチルト角にできる
+        map.setTilt(TILT_ANGLE);
     }
 }
 
@@ -1685,7 +1759,7 @@ async function updateStreetView() {
         }
         else {
             console.error(`Error getting panorama data for point ${currentPointIndex}:`, e);
-        } 
+        }
     }
 }
 function catchNoPanorama() {
@@ -1751,9 +1825,8 @@ function updatePhysics() {
         actualSpeedKmh = manualSpeedKmh;
         currentSpeedMps = actualSpeedKmh / 3.6;
     }
-    //ツアー中で時速5Km以上になっているときツールバーが表示されていたら消す
-    //TODOメニューが開いてるときは隠さないようにするべきだな
-    if (isTourRunning && actualSpeedKmh >= 5 && !toolBarHidden) {
+    //ツアー中で時速5Km以上になっているときツールバーが表示されていたら消す(設定メニューを開いているときを除く)
+    if (isTourRunning && actualSpeedKmh >= 5 && !toolBarHidden && !settingsDropdown.classList.contains('show')) {
         autoHideToolbarTimer -= deltaTime;
         if (autoHideToolbarTimer <= 0) {    //即座に消すと操作不能になるので５秒の猶予をつくる
             hideToolbar();
@@ -1795,7 +1868,7 @@ function updatePhysics() {
         // 現在のインデックスを更新
         const lastPointIndex = currentPointIndex;
         while (currentPointIndex < cumulativeDistances.length - 1 && currentPositionDistance > cumulativeDistances[currentPointIndex + 1]) {
-            currentPointIndex++;                    
+            currentPointIndex++;
         }
 
         if (currentPointIndex !== lastPointIndex) { // currentPointIndex変化したら勾配を再計算
@@ -1815,7 +1888,7 @@ function updatePhysics() {
                     cameraCenter = google.maps.geometry.spherical.computeOffset(currentPosition, lookAheadDistance, heading);
                 }
             }
-            map.moveCamera({ center: cameraCenter, tilt: tilt});
+            map.moveCamera({ center: cameraCenter, tilt: tilt });
             map.setHeading(heading);
 
             const newGradient = calculateCurrentGradient();
@@ -1903,7 +1976,7 @@ function jumpToDistance(newDistance) {
         currentLocationMarker.setPosition(newPosition);
         map.panTo(newPosition);
     }
-    
+
     // ストリートビューを即時更新
     updateStreetView();
 
@@ -1963,7 +2036,7 @@ function calculateCurrentGradient(fwPointsToConsider = 3, bwPointsToConsider = 3
 
     const slope = numerator / denominator * 100;
 
-    return Math.max(-gradientLimiter , Math.min(slope, gradientLimiter));
+    return Math.max(-gradientLimiter, Math.min(slope, gradientLimiter));
 }
 /**
  * //!!指定された座標の地名を取得し、状況に応じた音声ガイダンスを再生します。
@@ -1976,11 +2049,11 @@ async function announceLocation(location, context) {
     try {
         const { results } = await geocoder.geocode({ location: location, language: currentLang });
         if (!results || !results[0]) return;
-       // デバッグ用に取得した住所情報をコンソールに出力
+        // デバッグ用に取得した住所情報をコンソールに出力
         console.log('Geocoding Result:', results[0]?.formatted_address, results[0]?.address_components);
 
         const addressComponents = results[0].address_components;
-        let prefecture = '', locality = '', sublocality = '', routeName = '';
+        let prefecture = '', locality = '', sublocality = '', sublocality2 = '', routeName = '';
 
         for (const component of addressComponents) {
             if (component.types.includes('administrative_area_level_1')) {
@@ -1994,16 +2067,19 @@ async function announceLocation(location, context) {
                 locality = component.long_name;
             }
             if (sublocality === '' && component.types.includes('sublocality_level_2')) {
-                sublocality = component.long_name;
+                sublocality = component.long_name.trim();
+            }
+            if (sublocality2 === '' && component.types.includes('sublocality_level_3')) {
+                sublocality2 = component.long_name.trim();
             }
         }
-        const locationName = locality + ' ' + sublocality.trim();
+        const locationName = locality + ' ' + sublocality + sublocality2;
 
         if (mapSearchInput && mapSearchInput.value !== locationName) {
             mapSearchInput.value = locationName;
         }
 
-        const newFullMunicipality = sublocality ? (prefecture + locality + sublocality) : '';
+        const newFullMunicipality = sublocality ? (prefecture + locality + sublocality + sublocality2) : '';
         let announced = false; // この呼び出しで何かアナウンスしたか
 
         if (context === 'departure') {
@@ -2011,7 +2087,7 @@ async function announceLocation(location, context) {
             speak(message, currentLang === 'ja' ? 'ja-JP' : 'en-US');
             currentMunicipality = newFullMunicipality;
         } else if (context === 'moving') {
-            // 「町」レベルの地名が取得できた場合のみ比較・アナウンス
+            // 町」レベルの地名が取得できた場合のみ比較・アナウンス
             if (newFullMunicipality && newFullMunicipality !== currentMunicipality && (locality !== '' || sublocality !== '')) {
 
                 if (currentMunicipality !== '') { // 初回はメッセージを表示しない
@@ -2128,13 +2204,13 @@ async function startTour() {
         if (isNaN(speed) || speed <= 0) {
             showMessage(uiStrings[currentLang].invalidSpeed, true);
             return;
-        }                
+        }
         actualSpeedKmh = manualSpeedKmh;
     } else {
         // パワーソース接続時は0からスタート
         actualSpeedKmh = 0;
     }
-    
+
     // 画面のスリープを防止
     await requestWakeLock();
     isTourRunning = true;
@@ -2423,8 +2499,8 @@ function saveLogAsTcx() {
     const blob = new Blob([tcxContent], { type: 'application/vnd.garmin.tcx+xml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;            const date = new Date(logStartTime);
-    const filename = `activity_${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2,'0')}${date.getDate().toString().padStart(2,'0')}_${date.getHours().toString().padStart(2,'0')}${date.getMinutes().toString().padStart(2,'0')}.tcx`;
+    a.href = url; const date = new Date(logStartTime);
+    const filename = `activity_${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}_${date.getHours().toString().padStart(2, '0')}${date.getMinutes().toString().padStart(2, '0')}.tcx`;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
@@ -2616,6 +2692,10 @@ async function initMap() {
         const tiltViewLabel = document.getElementById('tilt-view-label');
         if (tiltViewLabel) {
             tiltViewLabel.parentElement.style.display = 'flex'; // チルト表示のitemを表示
+
+            const tiltViewToggle = document.getElementById('tilt-view-toggle');
+            tiltViewToggle.checked = isTiltView;
+            map.setTilt(isTiltView ? TILT_ANGLE : 0);
         }
     } else {
         const tiltViewLabel = document.getElementById('tilt-view-label');
@@ -2624,6 +2704,14 @@ async function initMap() {
         console.log('Raster map enabled (No valid Map ID provided or failed to load).');
     }
 
+    // @@ズームレベルが変更されたときにチルトを再適用するリスナー
+    map.addListener('zoom_changed', () => {
+        if (isVectorMap && isTiltView) {
+            // setTilt() は即時反映されないことがあるため、moveCamera() を使用してビューの更新を強制する。
+            // これにより、現在の中心位置やズームレベルを維持したまま、チルト角だけを更新できる。
+            map.moveCamera({ tilt: TILT_ANGLE });
+        }
+    });
     // --- TTSエンジンの初期化 ---
     // URLパラメータからAPIキーを取得
     const apiKey = urlParams.get('apiKey');
@@ -2706,7 +2794,7 @@ async function initMap() {
     searchInput.type = 'text';
     searchInput.placeholder = '場所を検索';
     searchInput.style.cssText = 'background-color: rgba(255,255,255,0.8); font-family: Roboto; font-size: 15px; font-weight: 300; margin: 12px; padding: 5px 10px; width: 180px; border: 1px solid #ccc; box-shadow: 0 2px 6px rgba(0,0,0,0.3); border-radius: 3px;';
-    
+
     const searchBox = new google.maps.places.SearchBox(searchInput);
     map.controls[google.maps.ControlPosition.TOP_LEFT].push(searchInput);
 
@@ -2984,7 +3072,9 @@ async function initMap() {
     // ユーザー投稿データ表示のトグルスイッチ
     const userContentToggle = document.getElementById('user-content-toggle');
     userContentToggle.addEventListener('change', (event) => {
-        showUserContent = event.target.checked;
+        const isChecked = event.target.checked;
+        showUserContent = isChecked;
+        localStorage.setItem('showUserContent', isChecked);
         // panoramaのsourceを更新して即時反映
         panorama.setOptions({ source: showUserContent ? google.maps.StreetViewSource.DEFAULT : google.maps.StreetViewSource.OUTDOOR });
     });
@@ -3000,14 +3090,17 @@ async function initMap() {
             map.setMapTypeId('terrain'); // 地図 + 地形
         }
     });
-    
+
     // 進行方向を上にするトグルスイッチ
     const tiltViewToggle = document.getElementById('tilt-view-toggle');
     tiltViewToggle.addEventListener('change', (event) => {
         if (isVectorMap) {
             // ベクターマップの場合：チルト表示の切り替え
             isTiltView = event.target.checked;
-            map.setTilt(isTiltView ? 60 : 0);
+            const isChecked = event.target.checked;
+            isTiltView = isChecked;
+            localStorage.setItem('isTiltViewEnabled', isChecked);
+            map.setTilt(isTiltView ? TILT_ANGLE : 0);
             // チルト表示、現在の進行方向に地図の向きを反映させる
             const heading = (isTiltView && currentPointIndex + 1 < routePoints.length) ?
                 getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]) : 0;
@@ -3103,7 +3196,7 @@ function loadMapsScript() {
     }
 
     // Google Maps APIキーが無効だった場合に呼び出されるコールバック
-    window.gm_authFailure = function() {
+    window.gm_authFailure = function () {
         console.error("Google Maps API key authentication failed. Clearing the stored key.");
         // 保存されている無効なAPIキーを削除
         localStorage.removeItem('streetMoViewApiKey');
@@ -3187,13 +3280,29 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     speedLimiterInput.value = speedLimiter;
 
+    const savedIsTiltView = localStorage.getItem('isTiltViewEnabled');
+    if (savedIsTiltView !== null) {
+        isTiltView = (savedIsTiltView === 'true');
+    }
+    // isVectorMapが確定した後にUIに反映させるため、ここでは変数のみ更新
+
+    const savedShowUserContent = localStorage.getItem('showUserContent');
+    if (savedShowUserContent !== null) {
+        showUserContent = (savedShowUserContent === 'true');
+    }
+    document.getElementById('user-content-toggle').checked = showUserContent;
+    // panoramaオブジェクトが生成された後に反映させるため、ここではUIのみ更新
+
+
     // ---------------------------------
 
     setLanguage(currentLang); // ★最初に言語を設定
 
     let GOOGLE_MAPS_API_KEY = localStorage.getItem('streetMoViewApiKey');
 
-    if (!GOOGLE_MAPS_API_KEY) {
+    if (GOOGLE_MAPS_API_KEY) {
+        loadMapsScript();
+    } else {
         const promptMessages = {
             ja: 'このアプリケーションを利用するにはGoogle Maps APIキーが必要です。\nAPIキーを入力してください。キーはブラウザに保存され、外部には送信されません。',
             en: 'A Google Maps API Key is required to use this application.\nPlease enter your API key. It will be stored in your browser and will not be sent externally.'
@@ -3212,15 +3321,8 @@ window.addEventListener('DOMContentLoaded', () => {
             return;
         }
     }
-    
-    if (GOOGLE_MAPS_API_KEY) {
-        loadMapsScript();
-    } else {
-        // このケースはlocalStorageにキーがなく、promptもキャンセルされた場合に到達する
-        window.location.href = 'about:blank';
-    }
 });
-/*
-BUG目的地を指定しての経路検索で終点マーカーが経路のラインの最後の場所になってない
-
+/*-
+TODOトンネル標高半自動補正機能：標高グラフでトンネルの上の山頂上付近でボタンを押すとトンネルの入口、出口を探して標高データを補正しグラフに反映させる
+TODO
 */
