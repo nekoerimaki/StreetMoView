@@ -73,6 +73,7 @@ const uiStrings = {
         hrConnectionFailed: '心拍計の接続に失敗しました:',
         hrConnectionError: '心拍計接続エラー: ',
         hrDisconnected: '心拍計から切断しました。',
+        hrTimeout: '心拍計からのデータ受信がタイムアウトしました。',
         logStarted: 'ログ記録を開始しました。',
         logStopped: 'ログ記録を終了しました。',
         confirmSaveTcx: '記録したアクティビティをTCXファイルとして保存しますか？',
@@ -177,6 +178,7 @@ const uiStrings = {
         hrConnectionFailed: 'Failed to connect to heart rate monitor:',
         hrConnectionError: 'Heart rate monitor connection error: ',
         hrDisconnected: 'Disconnected from heart rate monitor.',
+        hrTimeout: 'Data reception from heart rate monitor timed out.',
         logStarted: 'Log recording started.',
         logStopped: 'Log recording stopped.',
         confirmSaveTcx: 'Do you want to save the recorded activity as a TCX file?',
@@ -745,6 +747,9 @@ let bleDevice = null;
 let ftmsCharacteristic = null;
 let hrDevice = null;
 let hrCharacteristic = null;
+let hrWebSocket = null;
+let hrWebSocketTimeoutId = null;
+const HR_WEBSOCKET_TIMEOUT = 60000; // 60秒
 
 let lastPosition;
 let lastElevation;
@@ -2317,11 +2322,30 @@ async function disconnectFromBleDevice() {
     await stopTour(); // 切断時にツアーを停止
 }
 
-async function connectToHrDevice() {
-    if (hrDevice && hrDevice.gatt.connected) {
-        disconnectFromHrDevice();
-        return;
+async function toggleHrConnection() { //@@toggleHrConnection()
+    const urlParams = new URLSearchParams(window.location.search);
+    const hrwsPort = urlParams.get('hrwsPort');
+
+    if (hrwsPort) {
+        if (hrWebSocket && hrWebSocket.readyState === WebSocket.OPEN) {
+            disconnectFromHrWebSocket();
+        } else {
+            connectToHrWebSocket(hrwsPort);
+        }
+    } else {
+        if (hrDevice && hrDevice.gatt.connected) {
+            disconnectFromHrDevice();
+        } else {
+            await connectToHrDevice();
+        }
     }
+}
+
+async function connectToHrDevice() {
+    // @@if (hrDevice && hrDevice.gatt.connected) {
+    //     disconnectFromHrDevice();
+    //     return;
+    // }
 
     try {
         showMessage(uiStrings[currentLang].searchingHr, false);
@@ -2365,6 +2389,73 @@ function disconnectFromHrDevice() {
     hrConnectButton.textContent = uiStrings[currentLang].connectHr;
     hrConnectButton.style.backgroundColor = '#3498db';
     document.getElementById('hr-display').textContent = '0 bpm';
+}
+
+function connectToHrWebSocket(port) {
+    if (hrWebSocket && (hrWebSocket.readyState === WebSocket.OPEN || hrWebSocket.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
+
+    showMessage(uiStrings[currentLang].connectingHr, false);
+    hrWebSocket = new WebSocket(`ws://localhost:${port}`);
+
+    hrWebSocket.onopen = () => {
+        showMessage(uiStrings[currentLang].hrConnected, false);
+        hrConnectButton.textContent = uiStrings[currentLang].disconnect;
+        hrConnectButton.style.backgroundColor = '#e74c3c';
+        resetHrWebSocketTimeout(); // ソケットオープン時からタイマーをセット
+    };
+
+    const resetHrWebSocketTimeout = () => {
+        clearTimeout(hrWebSocketTimeoutId);
+        hrWebSocketTimeoutId = setTimeout(() => {
+            showMessage(uiStrings[currentLang].hrTimeout, true);
+            disconnectFromHrWebSocket();
+        }, HR_WEBSOCKET_TIMEOUT);
+    };
+
+    hrWebSocket.onmessage = (event) => {
+        //@@console.log('Received message from WebSocket:', event.data);
+        try {
+            const data = JSON.parse(event.data);
+            if (data && typeof data.heartRate === 'number') {
+                currentHeartRate = data.heartRate;
+                document.getElementById('hr-display').textContent = `${currentHeartRate} bpm`;
+                resetHrWebSocketTimeout(); // データ受信時にタイマーをリセット
+            }
+        } catch (error) {
+            console.error('Failed to parse heart rate data from WebSocket:', error);
+        }
+    };
+
+    hrWebSocket.onerror = (error) => {
+        console.error(`${uiStrings[currentLang].hrConnectionError}`, error);
+        showMessage(`${uiStrings[currentLang].hrConnectionError} WebSocket error.`);
+        // 接続失敗時に状態をリセット
+        if (hrWebSocket) {
+            hrWebSocket.close(); //念のため閉じる
+        }
+    };
+
+    hrWebSocket.onclose = () => {
+        // ユーザーが意図的に切断した場合以外でも呼ばれるため、状態をリセットする
+        clearTimeout(hrWebSocketTimeoutId); // タイマーをクリア
+        if (hrWebSocket) { // 既にnullでなければ
+            showMessage(uiStrings[currentLang].hrDisconnected, false);
+            hrConnectButton.textContent = uiStrings[currentLang].connectHr;
+            hrConnectButton.style.backgroundColor = '#3498db';
+            document.getElementById('hr-display').textContent = '0 bpm';
+            hrWebSocket = null;
+            currentHeartRate = 0;
+        }
+    };
+}
+
+function disconnectFromHrWebSocket() {
+    if (hrWebSocket && hrWebSocket.readyState === WebSocket.OPEN) {
+        clearTimeout(hrWebSocketTimeoutId); // 手動切断時にもタイマーをクリア
+        hrWebSocket.close();
+    }
 }
 
 /**
@@ -2704,7 +2795,7 @@ async function initMap() {
         console.log('Raster map enabled (No valid Map ID provided or failed to load).');
     }
 
-    // @@ズームレベルが変更されたときにチルトを再適用するリスナー
+    // ズームレベルが変更されたときにチルトを再適用するリスナー
     map.addListener('zoom_changed', () => {
         if (isVectorMap && isTiltView) {
             // setTilt() は即時反映されないことがあるため、moveCamera() を使用してビューの更新を強制する。
@@ -3054,7 +3145,7 @@ async function initMap() {
         }
     });
     logToggleButton.addEventListener('click', toggleLogging);
-    hrConnectButton.addEventListener('click', connectToHrDevice);
+    hrConnectButton.addEventListener('click', toggleHrConnection);
 
     // 言語スイッチャーのイベントリスナー
     document.querySelectorAll('.lang-btn').forEach(btn => {
