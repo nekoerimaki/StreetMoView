@@ -749,7 +749,7 @@ let hrDevice = null;
 let hrCharacteristic = null;
 let hrWebSocket = null;
 let hrWebSocketTimeoutId = null;
-const HR_WEBSOCKET_TIMEOUT = 60000; // 60秒
+const HR_WEBSOCKET_TIMEOUT = 180000; // 3分で心拍数を受信できてないと判断
 
 let lastPosition;
 let lastElevation;
@@ -2322,7 +2322,7 @@ async function disconnectFromBleDevice() {
     await stopTour(); // 切断時にツアーを停止
 }
 
-async function toggleHrConnection() { //@@toggleHrConnection()
+async function toggleHrConnection() {
     const urlParams = new URLSearchParams(window.location.search);
     const hrwsPort = urlParams.get('hrwsPort');
 
@@ -2342,11 +2342,6 @@ async function toggleHrConnection() { //@@toggleHrConnection()
 }
 
 async function connectToHrDevice() {
-    // @@if (hrDevice && hrDevice.gatt.connected) {
-    //     disconnectFromHrDevice();
-    //     return;
-    // }
-
     try {
         showMessage(uiStrings[currentLang].searchingHr, false);
         hrDevice = await navigator.bluetooth.requestDevice({
@@ -2415,7 +2410,6 @@ function connectToHrWebSocket(port) {
     };
 
     hrWebSocket.onmessage = (event) => {
-        //@@console.log('Received message from WebSocket:', event.data);
         try {
             const data = JSON.parse(event.data);
             if (data && typeof data.heartRate === 'number') {
@@ -3402,7 +3396,9 @@ window.addEventListener('DOMContentLoaded', () => {
         if (GOOGLE_MAPS_API_KEY && GOOGLE_MAPS_API_KEY.trim() !== '') {
             localStorage.setItem('streetMoViewApiKey', GOOGLE_MAPS_API_KEY);
             // キーを保存したらリフレッシュしてAPIスクリプトを読み込ませる
-            location.reload();
+            setTimeout(() => {
+                location.reload();
+            }, 100);
             return; // リフレッシュするので以降の処理は不要
         } else {
             // キーが入力されなかった場合はブランクページに移動
