@@ -358,7 +358,7 @@ button:disabled {
     display: flex;
     flex-wrap: wrap;
     gap: 5px 15px;
-    /* 横のgapを少し詰める */
+    /* 横のgapを詰める */
     justify-content: flex-start;
     /* 左詰めにする */
     /*box-shadow: 0 2px 5px rgba(0,0,0,0.2);*/

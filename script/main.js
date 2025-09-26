@@ -36,6 +36,7 @@ const uiStrings = {
         boost: 'ブースト',
         cadence: 'ケイデンス',
         heartRate: '心拍数',
+        calories: 'カロリー',
         directionSettings: '表示方向',
         left90: '左90°',
         left45: '左45°',
@@ -141,6 +142,7 @@ const uiStrings = {
         boost: 'boost',
         cadence: 'Cadence',
         heartRate: 'Heart Rate',
+        calories: 'Calories',
         directionSettings: 'View Dir',
         left90: 'Left 90°',
         left45: 'Left 45°',
@@ -658,6 +660,7 @@ function updateInfoDisplay() {
     document.getElementById('gradient').textContent = `${currentGradient.toFixed(1)} %`;
 
     // 勾配の値に応じて色を変更
+    document.getElementById('calories-display').textContent = `${totalCalories.toFixed(0)} kcal`;
     const gradientValueEl = document.getElementById('gradient');
     if (currentGradient >= 10) {
         gradientValueEl.style.color = '#e74c3c'; // 赤
@@ -703,6 +706,7 @@ let currentPower = 0;
 let showUserContent = true; // ユーザー投稿データを表示するかのフラグ
 let currentCadence = 0;
 let currentHeartRate = 0;
+let totalCalories = 0;
 let isBoostActive = false;
 let isVectorMap = false; // ベクターマップが有効かどうかのフラグ
 let isTiltView = false; // チルト表示が有効かどうかのフラグ
@@ -1200,6 +1204,7 @@ function resetTourState() {
     currentPositionDistance = 0;
     if (!isLogging) {
         distanceTraveled = 0; // 走行距離もリセット
+        totalCalories = 0;
     }
     currentPointIndex = 0;
 
@@ -1853,10 +1858,14 @@ function updatePhysics() {
         distanceSinceLastGeocode += deltaDistance;
         distanceSinceLastSvUpdate += deltaDistance;
         // 道路名アナウンス用の距離も加算
+        if (currentPower > 0) {
+            // 消費カロリー(kcal)を計算して加算
+            // エネルギー(J) = パワー(W) * 時間(s)。1kcal ~= 4184J。人間の効率を約24%とすると、1W・sあたり約1cal。
+            totalCalories += (currentPower * deltaTime) / 1000;
+        }
         if (distanceOnCurrentRoad > 0) {
             distanceOnCurrentRoad += deltaDistance;
         }
-
 
         if (currentPositionDistance >= totalDistance) {
             currentPositionDistance = totalDistance;
@@ -2577,6 +2586,7 @@ function toggleLogging() {
         logStartDistance = distanceTraveled; // ログ開始時の走行距離を記録
         logStartTime = Date.now(); // ログ開始時刻を記録
         logToggleButton.textContent = uiStrings[currentLang].stopLog;
+        totalCalories = 0;
         logToggleButton.style.backgroundColor = '#f39c12'; // 記録中を示す色
         showMessage(uiStrings[currentLang].logStarted, false);
 
@@ -2667,8 +2677,8 @@ function saveLogAsTcx() {
       <Lap StartTime="${lapStartTimeISO}">
         <TotalTimeSeconds>${totalTimeSeconds.toFixed(0)}</TotalTimeSeconds>
         <DistanceMeters>${totalDistanceMeters.toFixed(2)}</DistanceMeters>
-        <MaximumSpeed>${maxSpeedMs.toFixed(2)}</MaximumSpeed>
-        <Calories>0</Calories>
+        <MaximumSpeed>${maxSpeedMs.toFixed(2)}</MaximumSpeed>        
+        <Calories>${Math.round(totalCalories)}</Calories>
         <Intensity>Active</Intensity>
         <TriggerMethod>Manual</TriggerMethod>
         <Track>${trackpointsXml}</Track>
@@ -2724,7 +2734,7 @@ function handleFTMSData(event) {
     }
     if (flags & 0x40) {
         const power = data.getInt16(offset, true);
-        currentPower = power;
+        currentPower = power;   //!!パワーソースからワット数を得ているところ
         document.getElementById('power-display').textContent = `${currentPower} W`;
 
         // ツアーが実行中でなく、パワーが検出され、かつ有効な経路が存在する場合にツアーを開始
