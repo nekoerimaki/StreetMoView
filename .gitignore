@@ -1,6 +1,6 @@
 # Visual Studio Code settings
 .vscode/
-.node_modules/
+node_modules/
 package.json
 package-lock.json
 
