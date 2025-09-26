@@ -685,6 +685,8 @@ let physicsIntervalId = null;
 let lastPhysicsUpdateTime = 0;
 let distanceSinceLastSvUpdate = 0;
 const STREETVIEW_UPDATE_DISTANCE = 20; // 20mごとにストリートビューを更新
+let deltaTimeSinceLastSvUpdate = 0;
+const STREETVIEW_UPDATE_INTERVAL = 2 // 2secごとにストリートビューを更新
 const PHYSICS_INTERVAL_MS = 500; // 500ms (2Hz)
 let currentLocationMarker;
 let isTourRunning = false;
@@ -790,7 +792,6 @@ const hideToolbarButton = document.getElementById('hide-toolbar-button');
 const originInput = document.getElementById('origin-input');
 const splitContainer = document.getElementById('split-container');
 const destinationInput = document.getElementById('destination-input');
-const intervalInput = document.getElementById('interval-input');
 let mapSearchInput = null;
 
 // 新しいオーバーレイのボタンのみを取得
@@ -809,6 +810,7 @@ const defaultSettings = { //!!移動モードに関連づけた初期値
     'WALKING': { speed: 5, interval: 3 }
 };
 const TILT_ANGLE = 67.5;    //最大値。ズームアウトすると小さくなる
+const interpolationInterval = 20;   //補間間隔固定化
 /**
  * ストリートビューとマップの分割比率を設定します。
  * @param {string} ratio - "sv:map" 形式の比率文字列 (例: "7:3")
@@ -1061,7 +1063,6 @@ function setTravelMode(mode, keepValue = false) {
         }
     });
     if (!keepValue) {
-        intervalInput.value = defaultSettings[mode].interval;
         speedInput.value = defaultSettings[mode].speed;
     }
 
@@ -1254,7 +1255,6 @@ async function processRoute(path, gpxElevationAvailable = false) {
             // let samplingDistance = (totalDistance >= 1000) ? (totalDistance * 0.025) : minSamplingDistance;
             // samplingDistance = Math.min(samplingDistance, maxSamplingDistance);
 
-            const interpolationInterval = parseFloat(intervalInput.value, 10);
             const samplingDistance = interpolationInterval * 10;
 
             sampledPointsData = [{ point: path[0], distance: 0 }];
@@ -1450,7 +1450,6 @@ async function calculateAndDisplayRoute() {
 
     const originValue = originInput.value;
     const destinationValue = destinationInput.value;
-    const interpolationInterval = parseFloat(intervalInput.value);
 
     if (!originValue || !destinationValue) {
         showMessage(uiStrings[currentLang].originDestRequired);
@@ -1660,7 +1659,6 @@ gpxFileInput.addEventListener('change', (event) => {
                 return;
             }
 
-            const interpolationInterval = parseFloat(intervalInput.value);
             const pathForPolyline = gpxPoints.map(p => new google.maps.LatLng(p.lat, p.lng));
             const interpolatedPath = [];
             routeElevations = [];
@@ -1731,10 +1729,9 @@ function stopFallbackMode() {
     }
 }
 
-async function updateStreetView() {
-    if (routePoints.length === 0 || currentPointIndex >= routePoints.length) return;
-
-    const targetPosition = routePoints[currentPointIndex];
+async function updateStreetView(targetPosition) { //!!updateStreetView()
+    //if (routePoints.length === 0 || currentPointIndex >= routePoints.length) return;
+    //const targetPosition = routePoints[currentPointIndex];
 
     try {
         const { data } = await streetViewService.getPanorama({
@@ -1778,8 +1775,7 @@ async function updateStreetView() {
 }
 function catchNoPanorama() {
     console.log(`No panorama found near point ${currentPointIndex}. Skipping Street View update.`);
-    const interpolationInterval = parseFloat(intervalInput.value) || 5;
-    const fallbackThreshold = interpolationInterval * 10;
+    const fallbackThreshold = 50;   //TODOグローバル定数化
     distanceWithoutStreetView += STREETVIEW_UPDATE_DISTANCE; // 最後に更新してからの距離を加算
 
     if (distanceWithoutStreetView > fallbackThreshold) {
@@ -1880,47 +1876,57 @@ function updatePhysics() {
             return;
         }
 
-        // マーカーは常に正確な現在地に表示
-        currentLocationMarker.setPosition(currentPosition);
-
         // 現在のインデックスを更新
         const lastPointIndex = currentPointIndex;
         while (currentPointIndex < cumulativeDistances.length - 1 && currentPositionDistance > cumulativeDistances[currentPointIndex + 1]) {
             currentPointIndex++;
         }
-
+        //let heading = 0;    //北が上（デフォルト）
         if (currentPointIndex !== lastPointIndex) { // currentPointIndex変化したら勾配を再計算
-            let tilt = 0;
-            let heading = 0;    //北が上（デフォルト）
-            let cameraCenter = currentPosition;
-            if (isVectorMap) {  //ベクターマップの場合
-                if (isTiltView || isFallbackModeActive) {   //チルト表示または代替モードの場合
-                    tilt = isFallbackModeActive ? 80 : 75;
-                    if (currentPointIndex > 0 && currentPointIndex + 1 < routePoints.length) {
-                        heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
-                    }
-                    // ズームレベルに応じてオフセット距離を計算 (ズームアウトするほど遠くを見る)
-                    // ズームレベル17で約150m、ズームレベル12で約4800mになるような計算式
-                    const zoomLevel = map.getZoom() || 17;
-                    const lookAheadDistance = 300 * Math.pow(2, 17 - zoomLevel);
-                    cameraCenter = google.maps.geometry.spherical.computeOffset(currentPosition, lookAheadDistance, heading);
-                }
-            }
-            map.moveCamera({ center: cameraCenter, tilt: tilt });
-            map.setHeading(heading);
-
             const newGradient = calculateCurrentGradient();
             //一瞬で大きな変化をするのを抑える
             currentGradient = Math.max(currentGradient - 3, Math.min(newGradient, currentGradient + 3));
         }
+        const diffToNextPosition = cumulativeDistances[currentPointIndex + 1] - cumulativeDistances[currentPointIndex];
+        const fraction = (currentPositionDistance - cumulativeDistances[currentPointIndex]) / diffToNextPosition;
+        //console.log(`currretDistance: ${currentPositionDistance} currentIndex: ${currentPointIndex} fraction: ${fraction}`);
+        const targetPosition = interpolate(routePoints[currentPointIndex], routePoints[currentPointIndex + 1], fraction);
 
+        // マーカーは常に正確な現在地に表示
+        currentLocationMarker.setPosition(targetPosition);
+        let tilt = 0;
+        let cameraCenter = targetPosition;
+        if (isVectorMap) {  //ベクターマップの場合
+            const heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
+            if (isTiltView || isFallbackModeActive) {   //チルト表示または代替モードの場合
+                tilt = isFallbackModeActive ? 80 : 75;
+                // if (currentPointIndex > 0 && currentPointIndex + 1 < routePoints.length) {
+                // }
+                // ズームレベルに応じてオフセット距離を計算 (ズームアウトするほど遠くを見る)
+                // ズームレベル17で約150m、ズームレベル12で約4800mになるような計算式
+                const zoomLevel = map.getZoom() || 17;
+                const lookAheadDistance = 300 * Math.pow(2, 17 - zoomLevel);
+                cameraCenter = google.maps.geometry.spherical.computeOffset(targetPosition, lookAheadDistance, heading);
+            }
+            map.moveCamera({ center: cameraCenter, tilt: tilt });
+            map.setHeading(heading);
+        }
+        else {
+            map.setCenter(targetPosition);
+        }
 
         updateInfoDisplay();
 
-        if (distanceSinceLastSvUpdate >= STREETVIEW_UPDATE_DISTANCE) {
-            updateStreetView();
-            distanceSinceLastSvUpdate = 0;
+        // if (distanceSinceLastSvUpdate >= STREETVIEW_UPDATE_DISTANCE) {
+        //     updateStreetView();
+        //     distanceSinceLastSvUpdate = 0;
+        // }
+        deltaTimeSinceLastSvUpdate += deltaTime;
+        if (deltaTimeSinceLastSvUpdate >= STREETVIEW_UPDATE_INTERVAL) {
+            updateStreetView(targetPosition);
+            deltaTimeSinceLastSvUpdate -= STREETVIEW_UPDATE_INTERVAL;
         }
+
 
         if (distanceSinceLastGeocode >= geocodeIntervalDistance) {
             announceLocation(currentPosition, 'moving');
@@ -2012,7 +2018,7 @@ function jumpToDistance(newDistance) {
  * @param {number} [pointsToConsider=20] - 勾配計算に考慮するデータ点の数（現在地を含む前方）。
  * @returns {number} - 計算された勾配 (%)。
  */
-function calculateCurrentGradient(fwPointsToConsider = 3, bwPointsToConsider = 3) {
+function calculateCurrentGradient(fwPointsToConsider = 2, bwPointsToConsider = 1) {
     if (routeElevations.length < 2 || currentPointIndex >= routeElevations.length) {
         return 0;
     }
@@ -3537,5 +3543,10 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 /*-
 TODOトンネル標高半自動補正機能：標高グラフでトンネルの上の山頂上付近でボタンを押すとトンネルの入口、出口を探して標高データを補正しグラフに反映させる
-TODO
+TODO移動手段に応じた自動ツアー速度の設定を廃止
+TODO目標地点の設定と目標地方角ロック機能（ベクターマップ時）
+TODO経路をアペンドできるようにする
+TODOパワー値を指定しての自動ツアー
+BUG代替表示モードからの復帰でちゃんと元の表示に戻ってない
+BUG
 */

@@ -200,8 +200,7 @@ input:checked+.slider:before {
     /*設定・フルスクリーンボタンを右寄せ*/
 }
 
-#speed-input,
-#interval-input {
+#speed-input {
     width: 60px;
     padding: 8px;
     font-size: 0.9rem;
@@ -539,7 +538,6 @@ button:disabled {
     #origin-input,
     #destination-input,
     #speed-input,
-    #interval-input,
     button {
         width: 100%;
     }
