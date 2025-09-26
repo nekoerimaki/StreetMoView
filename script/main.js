@@ -715,6 +715,9 @@ let gradientLimiter = 0; // 勾配リミッターの値 (%) 0は無効
 let speedLimiter = 0; // 速度リミッターの値 (km/h) 0は無効
 let actualSpeedKmh = 0; // 実際の移動速度 (km/h)
 
+let isChartPreviewing = false; // 標高グラフのプレビュー中かどうかのフラグ
+let previewStartIndex = -1; // プレビュー開始前のインデックス
+
 let placesService, infoWindow, selectedPlace = null;
 let geocoder;
 let originLatLng = null, destinationLatLng = null;
@@ -1183,6 +1186,7 @@ function clearMarkers() {
  * ツアー状態を初期化します。
  */
 function resetTourState() {
+    closeChartPopup();
     stopTour();
     clearMarkers();
     directionsRenderer.setDirections({ routes: [] });
@@ -1988,6 +1992,9 @@ function jumpToDistance(newDistance) {
     // ジャンプした地点を出発地として設定
     setOriginToGeocodedLocation(newPosition);
 
+    // グラフ上のマーカーも更新
+    drawElevationChart(newDistance);
+
     // 情報表示とグラフを更新
     updateInfoDisplay();
 }
@@ -2129,9 +2136,18 @@ async function announceLocation(location, context) {
 }
 /**
  * 標高グラフのクリックイベントを処理します。
+ * グラフ上のクリックした場所にポップアップを表示します。
  * @param {MouseEvent} event - クリックイベント
  */
 function handleChartClick(event) {
+    // プレビューを開始する前に、現在の状態を保存
+    if (!isChartPreviewing) {
+        previewStartIndex = currentPointIndex;
+    }
+    isChartPreviewing = true;
+
+    closeChartPopup(); // 既存のポップアップを閉じる
+
     if (isTourRunning) {
         showMessage(uiStrings[currentLang].jumpDisabledDuringTour);
         return;
@@ -2153,7 +2169,87 @@ function handleChartClick(event) {
     const fraction = Math.max(0, Math.min(1, clickedX / chartWidth));
     const newDistance = totalDistance * fraction;
 
-    jumpToDistance(newDistance);
+    // プレビュー用の位置情報を取得
+    const previewIndex = findIndexByDistance(newDistance);
+    const previewPosition = routePoints[previewIndex];
+
+    // ストリートビューとマップをプレビュー位置に移動
+    panorama.setPosition(previewPosition);
+    map.panTo(previewPosition);
+
+    // グラフ上にカスタムポップアップを作成して表示
+    const chartContainer = document.getElementById('elevation-chart-container');
+    const popup = document.createElement('div');
+    popup.id = 'chart-popup';
+    // スタイルを直接設定
+    popup.style.cssText = `
+        position: absolute;
+        left: ${event.offsetX}px;
+        top: ${event.offsetY}px;
+        transform: translate(-50%, calc(-100% - 10px)); /* 矢印の分だけ上にオフセット */
+        background-color: white;
+        padding: 10px 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        z-index: 10;
+        border: 1px solid #ccc;
+        /* 吹き出しの矢印部分を作成 */
+        &::after {
+            content: '';
+            position: absolute;
+            bottom: -10px; /* 吹き出しの下にくっつける */
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 10px 10px 0;
+            border-style: solid;
+            border-color: white transparent transparent transparent;
+        }
+    `;
+
+    const distanceKm = (newDistance / 1000).toFixed(2);
+    popup.innerHTML = `
+        <button id="chart-popup-close-btn" style="position: absolute; top: 2px; right: 5px; border: none; background: none; font-size: 20px; cursor: pointer; color: #888; padding: 0; line-height: 1;">&times;</button>
+        <div style="color: #333; font-family: 'Inter', sans-serif; line-height: 1.5; padding-right: 15px;">
+            <div style="font-size: 14px; margin-bottom: 12px;">距離: <strong>${distanceKm} km</strong> 地点</div>
+            <button class="infowindow-btn" id="jump-confirm-btn" style="width: 100%;">この地点にジャンプ</button>
+        </div>
+    `;
+    chartContainer.appendChild(popup);
+
+    // ポップアップ内のボタンにイベントリスナーを設定
+    document.getElementById('jump-confirm-btn').addEventListener('click', () => {
+        jumpToDistance(newDistance);
+        isChartPreviewing = false; // ジャンプしたのでプレビュー状態を解除
+        previewStartIndex = -1;
+        closeChartPopup();
+    });
+
+    // ポップアップ内の閉じるボタンにイベントリスナーを設定
+    document.getElementById('chart-popup-close-btn').addEventListener('click', () => {
+        closeChartPopup(); // プレビューをキャンセルして元の位置に戻す
+    });
+}
+
+/**
+ * 標高グラフのポップアップを閉じます。
+ */
+function closeChartPopup() {
+    const existingPopup = document.getElementById('chart-popup');
+    if (existingPopup) {
+        // プレビュー中であれば、元の位置にビューを戻す
+        if (isChartPreviewing && previewStartIndex !== -1 && routePoints.length > previewStartIndex) {
+            const originalPosition = routePoints[previewStartIndex];
+            panorama.setPosition(originalPosition);
+            map.panTo(originalPosition);
+
+            // ストリートビューの向きも元に戻す
+            updateStreetView();
+        }
+        isChartPreviewing = false;
+        previewStartIndex = -1;
+
+        existingPopup.remove();
+    }
 }
 
 /**
@@ -2187,6 +2283,7 @@ const releaseWakeLock = async () => {
 };
 
 async function toggleTour() {
+    closeChartPopup(); // ツアー操作時にポップアップを閉じる
     if (isTourRunning) {
         await stopTour();
     } else {
@@ -2935,6 +3032,7 @@ async function initMap() {
     });
 
     map.addListener('click', (e) => {
+        closeChartPopup(); // マップクリックでグラフのポップアップを閉じる
         // クリックした場所に既にInfoWindowが開いていたら閉じる
         infoWindow.close();
         selectedPlace = null;
@@ -3407,6 +3505,25 @@ window.addEventListener('DOMContentLoaded', () => {
             return;
         }
     }
+
+    // グラフのポップアップ用のスタイルを<head>に追加
+    const style = document.createElement('style');
+    style.textContent = `
+        #chart-popup::after {
+            content: '';
+            position: absolute;
+            bottom: -10px; /* 吹き出しの下にくっつける */
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 10px 10px 0;
+            border-style: solid;
+            border-color: white transparent transparent transparent;
+            /* 枠線と合わせるための追加スタイル */
+            filter: drop-shadow(0 1px 0px #ccc);
+        }
+    `;
+    document.head.appendChild(style);
+
 });
 /*-
 TODOトンネル標高半自動補正機能：標高グラフでトンネルの上の山頂上付近でボタンを押すとトンネルの入口、出口を探して標高データを補正しグラフに反映させる
