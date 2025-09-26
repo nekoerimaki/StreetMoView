@@ -2078,13 +2078,13 @@ async function announceLocation(location, context) {
                 sublocality2 = component.long_name.trim();
             }
         }
-        const locationName = locality + ' ' + sublocality + sublocality2;
+        const locationName = sublocality ? locality + ' ' + sublocality + sublocality2 : prefecture + ' ' + locality;
 
         if (mapSearchInput && mapSearchInput.value !== locationName) {
             mapSearchInput.value = locationName;
         }
 
-        const newFullMunicipality = sublocality ? (prefecture + locality + sublocality + sublocality2) : '';
+        const newFullMunicipality = prefecture + locality + sublocality + sublocality2;
         let announced = false; // この呼び出しで何かアナウンスしたか
 
         if (context === 'departure') {
@@ -2093,8 +2093,7 @@ async function announceLocation(location, context) {
             currentMunicipality = newFullMunicipality;
         } else if (context === 'moving') {
             // 町」レベルの地名が取得できた場合のみ比較・アナウンス
-            if (newFullMunicipality && newFullMunicipality !== currentMunicipality && (locality !== '' || sublocality !== '')) {
-
+            if (newFullMunicipality && !currentMunicipality.includes(newFullMunicipality) && (locality !== '' || sublocality !== '')) {
                 if (currentMunicipality !== '') { // 初回はメッセージを表示しない
                     const messageTemplate = uiStrings[currentLang].municipalityGuidance || '{municipality}を、移動中です。';
                     const message = messageTemplate.replace('{municipality}', locationName);
