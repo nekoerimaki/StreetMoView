@@ -716,7 +716,7 @@ const BOOST_FACTOR = 1.5;
 let isFallbackModeActive = false; // 代替表示モードが有効かどうかのフラグ
 let savedZoomLevel; // 代替表示モードでズーム倍率をセットする前に元の値を保持
 let autoBoostThreshold = 10; // オートブーストのしきい値（%）
-let manualSpeedKmh = 0; // 手動入力の速度 (km/h)
+let autoTravelSpeed = 0; // 自動ツアー速度 (km/h)
 let gradientLimiter = 0; // 勾配リミッターの値 (%) 0は無効
 let speedLimiter = 0; // 速度リミッターの値 (km/h) 0は無効
 let actualSpeedKmh = 0; // 実際の移動速度 (km/h)
@@ -803,14 +803,16 @@ let ratioButtons;
 const controlsArea = document.querySelector('.controls-area');
 const mainContainer = document.getElementById('main-container');
 
-const defaultSettings = { //!!移動モードに関連づけた初期値
-    'DRIVING': { speed: 50, interval: 10 },
-    'BICYCLING': { speed: 20, interval: 5 }, // Google Maps標準の自転車モード
-    'BICYCLING_ROAD': { speed: 20, interval: 5 }, // 高速を避けた自動車モード
-    'WALKING': { speed: 5, interval: 3 }
-};
+// const defaultSettings = { //!!移動モードに関連づけた初期値
+//     'DRIVING': { speed: 50, interval: 10 },
+//     'BICYCLING': { speed: 20, interval: 5 }, // Google Maps標準の自転車モード
+//     'BICYCLING_ROAD': { speed: 20, interval: 5 }, // 高速を避けた自動車モード
+//     'WALKING': { speed: 5, interval: 3 }
+// };
 const TILT_ANGLE = 67.5;    //最大値。ズームアウトすると小さくなる
 const interpolationInterval = 20;   //補間間隔固定化
+const FALLBACK_THRESHOLD = 50;   //代替表示モードに移行するストリートビュー未取得距離
+
 /**
  * ストリートビューとマップの分割比率を設定します。
  * @param {string} ratio - "sv:map" 形式の比率文字列 (例: "7:3")
@@ -1052,7 +1054,7 @@ window.addEventListener('click', (event) => {
  * 巡回モードを設定し、UIを更新します。
  * @param {string} mode - ツアーモード ('DRIVING', 'BICYCLING', 'WALKING')
  */
-function setTravelMode(mode, keepValue = false) {
+function setTravelMode(mode) {
     localStorage.setItem('streetMoViewTravelMode', mode); //選択されたモードを保存
     currentTravelMode = mode;
     travelModeButtons.forEach(btn => {
@@ -1062,10 +1064,6 @@ function setTravelMode(mode, keepValue = false) {
             btn.classList.remove('active');
         }
     });
-    if (!keepValue) {
-        speedInput.value = defaultSettings[mode].speed;
-    }
-
 }
 
 travelModeButtons.forEach(btn => {
@@ -1209,10 +1207,6 @@ function resetTourState() {
     }
     currentPointIndex = 0;
 
-    // パワーソースに接続されていない場合のみ、現在の移動モードのデフォルト速度を再設定
-    if (!bleDevice || !bleDevice.gatt.connected) {
-        setTravelMode(currentTravelMode, true); // これでspeedInputとmanualSpeedKmhが更新される
-    }
     document.getElementById('elevation').textContent = `N/A`;
     document.getElementById('gradient').textContent = `N/A`;
     updateInfoDisplay();
@@ -1460,10 +1454,7 @@ async function calculateAndDisplayRoute() {
         return;
     }
 
-    // BICYCLING_ROADはAPIリクエスト時にはDRIVINGとして扱う
-    const apiTravelMode = currentTravelMode === 'BICYCLING_ROAD'
-        ? google.maps.TravelMode.DRIVING
-        : google.maps.TravelMode[currentTravelMode];
+    const apiTravelMode = google.maps.TravelMode[currentTravelMode];
 
     const request = {
         origin: originLatLng || originValue,
@@ -1471,11 +1462,11 @@ async function calculateAndDisplayRoute() {
         travelMode: apiTravelMode
     };
 
-    // 「自転車(車道)」モードの場合、高速道路と有料道路を避ける
-    if (currentTravelMode === 'BICYCLING_ROAD') {
-        request.avoidHighways = true;
-        request.avoidTolls = true;
-    }
+    //!! 「自転車(車道)」モードの場合、高速道路と有料道路を避ける
+    // if (currentTravelMode === 'BICYCLING_ROAD') {
+    //     request.avoidHighways = true;
+    //     request.avoidTolls = true;
+    // }
 
     try {
         const routeResponse = await directionsService.route(request);
@@ -1775,10 +1766,9 @@ async function updateStreetView(targetPosition) { //!!updateStreetView()
 }
 function catchNoPanorama() {
     console.log(`No panorama found near point ${currentPointIndex}. Skipping Street View update.`);
-    const fallbackThreshold = 50;   //TODOグローバル定数化
     distanceWithoutStreetView += STREETVIEW_UPDATE_DISTANCE; // 最後に更新してからの距離を加算
 
-    if (distanceWithoutStreetView > fallbackThreshold) {
+    if (distanceWithoutStreetView > FALLBACK_THRESHOLD) {
         startFallbackMode();
     }
 }
@@ -1832,7 +1822,7 @@ function updatePhysics() {
         actualSpeedKmh = Math.min(actualSpeedKmh, speedLimiter);
     } else {
         // パワーソースが接続されていない場合は、手動入力された速度(manualSpeedKmh)を実際の速度(actualSpeedKmh)に反映する
-        actualSpeedKmh = manualSpeedKmh;
+        actualSpeedKmh = autoTravelSpeed;
         currentSpeedMps = actualSpeedKmh / 3.6;
     }
     //ツアー中で時速5Km以上になっているときツールバーが表示されていたら消す(設定メニューを開いているときを除く)
@@ -2321,7 +2311,7 @@ async function startTour() {
             showMessage(uiStrings[currentLang].invalidSpeed, true);
             return;
         }
-        actualSpeedKmh = manualSpeedKmh;
+        actualSpeedKmh = autoTravelSpeed;
     } else {
         // パワーソース接続時は0からスタート
         actualSpeedKmh = 0;
@@ -3315,9 +3305,9 @@ async function initMap() {
 
     // 手動での速度変更を検知
     speedInput.addEventListener('input', () => {
-        manualSpeedKmh = parseFloat(speedInput.value) || 0;
-        if (!isTourRunning && !bleDevice?.gatt.connected) actualSpeedKmh = manualSpeedKmh;
-        // 速度の変更はtourStepループ内で自動的に反映される
+        autoTravelSpeed = parseFloat(speedInput.value) || 0;
+        localStorage.setItem('autoTravelSpeed', autoTravelSpeed);
+        if (!isTourRunning && !bleDevice?.gatt.connected) actualSpeedKmh = autoTravelSpeed;
     });
 
     [originInput, destinationInput].forEach(input => {
@@ -3443,9 +3433,9 @@ window.addEventListener('DOMContentLoaded', () => {
         setTravelMode(savedTravelMode);
     }
 
-    // 初期速度を設定
-    speedInput.value = defaultSettings[currentTravelMode].speed;
-    manualSpeedKmh = defaultSettings[currentTravelMode].speed;
+    const savedAutoTravelSpeed = localStorage.getItem('autoTravelSpeed') || '20';
+    autoTravelSpeed = parseInt(savedAutoTravelSpeed, 10);
+    speedInput.value = autoTravelSpeed;
 
     // --- 保存された設定を読み込む ---
     const savedVoiceEnabled = localStorage.getItem('isVoiceGuidanceEnabled');
@@ -3543,7 +3533,6 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 /*-
 TODOトンネル標高半自動補正機能：標高グラフでトンネルの上の山頂上付近でボタンを押すとトンネルの入口、出口を探して標高データを補正しグラフに反映させる
-TODO移動手段に応じた自動ツアー速度の設定を廃止
 TODO目標地点の設定と目標地方角ロック機能（ベクターマップ時）
 TODO経路をアペンドできるようにする
 TODOパワー値を指定しての自動ツアー
