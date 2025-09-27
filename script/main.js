@@ -728,6 +728,7 @@ let placesService, infoWindow, selectedPlace = null;
 let geocoder;
 let originLatLng = null, destinationLatLng = null;
 
+let infoWindowTemplate = null;
 // 場所検索モーダル用
 // 出発地・目的地のオートコンプリート用
 let currentRoadName = ''; // 現在の道路名を保持
@@ -797,18 +798,12 @@ let mapSearchInput = null;
 // 新しいオーバーレイのボタンのみを取得
 const directionButtons = document.querySelectorAll('#direction-control-overlay button');
 const speedInput = document.getElementById('speed-input');
-const travelModeButtons = document.querySelectorAll('#travel-mode-switcher button');
+let travelModeButtons;
 let fullscreenButton; let currentTravelMode = 'BICYCLING';
 let ratioButtons;
 const controlsArea = document.querySelector('.controls-area');
 const mainContainer = document.getElementById('main-container');
 
-// const defaultSettings = { //!!移動モードに関連づけた初期値
-//     'DRIVING': { speed: 50, interval: 10 },
-//     'BICYCLING': { speed: 20, interval: 5 }, // Google Maps標準の自転車モード
-//     'BICYCLING_ROAD': { speed: 20, interval: 5 }, // 高速を避けた自動車モード
-//     'WALKING': { speed: 5, interval: 3 }
-// };
 const TILT_ANGLE = 67.5;    //最大値。ズームアウトすると小さくなる
 const interpolationInterval = 20;   //補間間隔固定化
 const FALLBACK_THRESHOLD = 50;   //代替表示モードに移行するストリートビュー未取得距離
@@ -1065,12 +1060,6 @@ function setTravelMode(mode) {
         }
     });
 }
-
-travelModeButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-        setTravelMode(btn.dataset.mode);
-    });
-});
 
 directionButtons.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -2773,7 +2762,7 @@ function jumpToPlace(place) {
                 panorama.setPov({ heading: 0, pitch: 0, zoom: 1 });
             }
         })
-        .catch(e => console.error("Could not set POV for jumped location:", e));
+        .catch(e => console.log("Could not set POV for jumped location:", e));
 }
 
 /**
@@ -3016,6 +3005,9 @@ async function initMap() {
     const mapCustomControls = document.getElementById('map-custom-controls');
     map.controls[google.maps.ControlPosition.TOP_RIGHT].push(mapCustomControls);
 
+    // InfoWindowテンプレートを取得
+    infoWindowTemplate = document.getElementById('infowindow-template');
+
 
     mapControlsContainer.style.display = 'flex'; // 表示を有効にする
 
@@ -3034,7 +3026,11 @@ async function initMap() {
     placesService = new google.maps.places.PlacesService(map);
     infoWindow = new google.maps.InfoWindow({
         // InfoWindow内のコンテンツがはみ出ないように最大幅を設定
-        maxWidth: 350
+        maxWidth: 350,
+        headerDisabled: true,
+        // 表示位置を上に調整（吹き出しの先端がアイコンに合うように）
+        // 数値を調整して最適な位置を見つけてください
+        pixelOffset: new google.maps.Size(0, -25),
     });
 
     map.addListener('click', (e) => {
@@ -3051,37 +3047,33 @@ async function initMap() {
                     selectedPlace = place; // クリックされた場所の情報を保持
 
                     // 出発地が入力されているかチェック
-                    const isOriginSet = originInput.value.trim() !== '' || originLatLng !== null;
-                    const setDestButtonText = isOriginSet ? uiStrings[currentLang].setAsDestinationAndSearch : uiStrings[currentLang].setAsDestination;
-                    const setDestButtonId = isOriginSet ? 'set-dest-and-search-btn' : 'set-dest-btn';
+                    const contentClone = infoWindowTemplate.firstElementChild.cloneNode(true);
+
+                    // 場所の名前と住所を設定
+                    contentClone.querySelector('.place-name').textContent = place.name;
+                    const placeAddressEl = contentClone.querySelector('.place-address');
+                    placeAddressEl.innerHTML = place.adr_address.replace('、', ''); //国名と郵便番号はCSSで消してるが句読点が残っているのを除去
 
                     // 出発地が設定されていれば、直線距離を計算して表示
-                    let distanceInfoHtml = '';
+                    const distanceEl = contentClone.querySelector('.place-distance');
                     if (originLatLng) {
                         const distanceInMeters = google.maps.geometry.spherical.computeDistanceBetween(originLatLng, place.geometry.location);
                         const distanceInKm = (distanceInMeters / 1000).toFixed(2);
-                        distanceInfoHtml = `<div style="font-size: 12px; color: #777; margin-top: 8px;">現在地からの直線距離: 約 ${distanceInKm} km</div>`;
+                        distanceEl.textContent = `現在地からの直線距離: 約 ${distanceInKm} km`;
+                    } else {
+                        distanceEl.style.display = 'none';
                     }
 
                     // ログ記録中でなければ「ここへ移動」ボタンを表示する
-                    const setOriginButtonHtml = !isLogging
-                        ? `<button class="infowindow-btn" id="set-origin-btn">${uiStrings[currentLang].setAsOrigin}</button>`
-                        : '';
+                    if (isLogging) {
+                        contentClone.querySelector('#set-origin-btn').style.display = 'none';
+                    }
 
-                    // InfoWindowに表示するHTMLコンテンツを生成
-                    const content = `
-                        <div style="color: #333; font-family: 'Inter', sans-serif; line-height: 1.5;">
-                            <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">${place.name}</div>
-                            ${place.formatted_address ? `<div style="font-size: 13px; color: #555; margin-bottom: 12px;">${place.formatted_address}</div>` : ''}
-                            ${distanceInfoHtml}
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;">
-                                ${setOriginButtonHtml}
-                                <button class="infowindow-btn" id="${setDestButtonId}">${setDestButtonText}</button>
-                                <button class="infowindow-btn" id="set-home-btn" style="background-color: #27ae60;">${uiStrings[currentLang].setAsHome}</button>
-                            </div>
-                        </div>
-                    `;
-                    infoWindow.setContent(content);
+                    // 目的地ボタンのテキストとIDを更新
+                    const isOriginSet = originInput.value.trim() !== '' || originLatLng !== null;
+                    contentClone.querySelector('#set-dest-btn').textContent = isOriginSet ? uiStrings[currentLang].setAsDestinationAndSearch : uiStrings[currentLang].setAsDestination;
+
+                    infoWindow.setContent(contentClone);
                     infoWindow.setPosition(e.latLng);
                     infoWindow.open(map);
 
@@ -3094,7 +3086,7 @@ async function initMap() {
 
     // InfoWindow内のボタンにイベントリスナーを設定
     infoWindow.addListener('domready', () => {
-        document.getElementById('set-origin-btn')?.addEventListener('click', () => {
+        infoWindow.getContent().querySelector('#set-origin-btn')?.addEventListener('click', () => {
             if (selectedPlace && selectedPlace.geometry && selectedPlace.geometry.location) {
                 // POIクリック時は、まず場所の名前(place.name)を優先して使う
                 // これにより「東京駅」のような短い名前が表示される
@@ -3114,23 +3106,35 @@ async function initMap() {
                 infoWindow.close();
             }
         });
-        document.getElementById('set-dest-btn')?.addEventListener('click', () => {
+
+        infoWindow.getContent().querySelector('#set-dest-btn')?.addEventListener('click', () => {
             if (selectedPlace) {
                 destinationInput.value = selectedPlace.name || selectedPlace.formatted_address;
                 destinationLatLng = selectedPlace.geometry.location;
                 infoWindow.close();
+
+                // 出発地が設定されていれば、即座に経路検索を実行
+                const isOriginSet = originInput.value.trim() !== '' || originLatLng !== null;
+                if (isOriginSet) {
+                    calculateAndDisplayRoute();
+                }
             }
         });
-        document.getElementById('set-dest-and-search-btn')?.addEventListener('click', () => {
-            if (selectedPlace) {
-                destinationInput.value = selectedPlace.name || selectedPlace.formatted_address;
-                destinationLatLng = selectedPlace.geometry.location;
-                infoWindow.close();
-                // 即座に経路検索を実行
-                calculateAndDisplayRoute();
-            }
+        travelModeButtons = infoWindow.getContent().querySelectorAll('#travel-mode-switcher button');
+        // --- 保存された設定を読み込む ---
+        const savedTravelMode = localStorage.getItem('streetMoViewTravelMode');
+        if (savedTravelMode) {
+            setTravelMode(savedTravelMode);
+        }
+
+        travelModeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                setTravelMode(btn.dataset.mode);
+            });
         });
-        document.getElementById('set-home-btn')?.addEventListener('click', () => {
+
+
+        infoWindow.getContent().querySelector('#set-home-btn')?.addEventListener('click', () => {
             if (selectedPlace && selectedPlace.geometry && selectedPlace.geometry.location) {
                 const homeLocation = {
                     lat: selectedPlace.geometry.location.lat(),
@@ -3427,12 +3431,6 @@ window.addEventListener('DOMContentLoaded', () => {
     // fullscreenchangeイベントは1つのリスナーで両方のボタンを更新できるので、ここでは重複して登録しない
     document.addEventListener('fullscreenchange', updateFullscreenButtonState);
 
-    // --- 保存された設定を読み込む ---
-    const savedTravelMode = localStorage.getItem('streetMoViewTravelMode');
-    if (savedTravelMode) {
-        setTravelMode(savedTravelMode);
-    }
-
     const savedAutoTravelSpeed = localStorage.getItem('autoTravelSpeed') || '20';
     autoTravelSpeed = parseInt(savedAutoTravelSpeed, 10);
     speedInput.value = autoTravelSpeed;
@@ -3536,6 +3534,8 @@ TODOトンネル標高半自動補正機能：標高グラフでトンネルの�
 TODO目標地点の設定と目標地方角ロック機能（ベクターマップ時）
 TODO経路をアペンドできるようにする
 TODOパワー値を指定しての自動ツアー
+TODO経路設定メニューの調整
 BUG代替表示モードからの復帰でちゃんと元の表示に戻ってない
-BUG
+BUGPOIクリックしたときマップの回転がリセットされる
+BUGストリートビューやマップのフルスクリーンボタンの動作がちゃんとしてない
 */

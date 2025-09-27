@@ -25,12 +25,6 @@
                             data-i18n-placeholder="originPlaceholder">
                         <input type="text" id="destination-input" placeholder="目的地: 例. 渋谷スクランブル交差点"
                             data-i18n-placeholder="destinationPlaceholder">
-                        <div class="mode-switcher" id="travel-mode-switcher">
-                            <button id="driving-mode-btn" data-mode="DRIVING" data-i18n="driving">自動車</button>
-                            <button id="bicycling-mode-btn" data-mode="BICYCLING" class="active"
-                                data-i18n="bicycling">自転車</button>
-                            <button id="walking-mode-btn" data-mode="WALKING" data-i18n="walking">徒歩</button>
-                        </div>
                         <button id="route-button" data-i18n="searchRoute">経路を検索</button>
                         <button id="load-gpx-button" data-i18n="loadGpx">GPXを読み込む</button>
                     </div>
@@ -275,6 +269,31 @@
             <canvas id="elevation-chart"></canvas>
         </div>
 
+    </div>
+
+    <!-- InfoWindowのテンプレート -->
+    <div id="infowindow-template" style="display: none;">
+        <div class="infowindow-content">
+            <div class="place-name"></div>
+            <div class="place-address"></div>
+            <div style="display: flex;">
+                <button class="infowindow-btn" id="set-origin-btn" data-i18n="setAsOrigin">ここへ移動</button>
+                <button class="infowindow-btn" id="set-home-btn" data-i18n="setAsHome"
+                    style="background-color: #27ae60;">ホームに設定</button>
+            </div>
+            <div class="place-distance"></div>
+            <!--<div class="infowindow-buttons">
+                <div class="settings-item">
+                    <label for="travel-mode-switcher" style="flex: 0; font-size:0.9rem;">経路検索：</label>
+                </div>
+            </div>-->
+            <button class="infowindow-btn" id="set-dest-btn"></button>
+            <div class="mode-switcher" style="flex: 1;" id="travel-mode-switcher">
+                <button id="driving-mode-btn" style="flex:1;" data-mode="DRIVING" data-i18n="driving">自動車</button>
+                <button id="bicycling-mode-btn" style="flex:1;" data-mode="BICYCLING" data-i18n="bicycling">自転車</button>
+                <button id="walking-mode-btn" style="flex:1;" data-mode="WALKING" data-i18n="walking">徒歩</button>
+            </div>
+        </div>
     </div>
 
     <script type="module" src="script/main.js"></script>

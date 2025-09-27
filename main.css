@@ -461,6 +461,7 @@ button:disabled {
 }
 
 .infowindow-btn {
+    margin: 2px;
     padding: 6px 12px;
     font-size: 0.85rem;
     color: white;
@@ -470,6 +471,36 @@ button:disabled {
     cursor: pointer;
     box-shadow: none;
     transform: none;
+}
+
+.infowindow-content {
+    color: #333;
+    font-family: 'Inter', sans-serif;
+    line-height: 1.5;
+}
+
+.infowindow-content .place-name {
+    font-weight: bold;
+    font-size: 16px;
+    margin-bottom: 4px;
+}
+
+.infowindow-content .place-address {
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.infowindow-content .place-address .country-name,
+.postal-code {
+    display: none;
+}
+
+.infowindow-content .place-distance {
+    font-size: 14px;
+    color: #333;
+    margin-top: 8px;
+    margin-bottom: 4px;
 }
 
 .infowow-btn:hover {
