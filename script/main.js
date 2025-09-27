@@ -2602,25 +2602,61 @@ function toggleLogging() {
 }
 
 /**
- * 記録したログをTCXファイルとして保存します。
+ * //!!記録したログをTCXファイルとして保存します。
  */
 function saveLogAsTcx() {
     let maxSpeedMs = 0; // m/s単位での最大速度
 
+    // let trackpointsXml = logData.map(p => {
+    //     let positionXml = '';
+    //     if (p.position) {
+    //         positionXml = `
+    //         <Position>
+    //           <LatitudeDegrees>${p.position.lat()}</LatitudeDegrees>
+    //           <LongitudeDegrees>${p.position.lng()}</LongitudeDegrees>
+    //         </Position>`;
+    //     }
+
+    //     let altitudeXml = '';
+    //     if (p.elevation !== undefined) {
+    //         altitudeXml = `
+    //         <AltitudeMeters>${p.elevation.toFixed(2)}</AltitudeMeters>`;
+    //     }
+
+    //     const speedMs = p.speed ? (p.speed * 1000 / 3600) : 0;
+    //     if (speedMs > maxSpeedMs) {
+    //         maxSpeedMs = speedMs;
+    //     }
+
+    //     // Garmin拡張スキーマ(TPX)に速度を追加
+    //     const tpxExtensions = `
+    //           <TPX xmlns="http://www.garmin.com/xmlschemas/ActivityExtension/v2">
+    //             <Watts>${p.power}</Watts>
+    //             <Speed>${speedMs.toFixed(2)}</Speed>
+    //           </TPX>`;
+
+    //     return `
+    //       <Trackpoint>
+    //         <Time>${p.timestamp}</Time>${positionXml}${altitudeXml}
+    //         <DistanceMeters>${p.distance.toFixed(2)}</DistanceMeters>
+    //         <HeartRateBpm>
+    //           <Value>${p.heartRate}</Value>
+    //         </HeartRateBpm>
+    //         <Cadence>${p.cadence}</Cadence>
+    //         <Extensions>
+    //           ${tpxExtensions}
+    //         </Extensions>
+    //       </Trackpoint>`;
+    // }).join('');
     let trackpointsXml = logData.map(p => {
         let positionXml = '';
         if (p.position) {
-            positionXml = `
-            <Position>
-              <LatitudeDegrees>${p.position.lat()}</LatitudeDegrees>
-              <LongitudeDegrees>${p.position.lng()}</LongitudeDegrees>
-            </Position>`;
+            positionXml = `<Position><LatitudeDegrees>${p.position.lat()}</LatitudeDegrees><LongitudeDegrees>${p.position.lng()}</LongitudeDegrees></Position>`;
         }
 
         let altitudeXml = '';
         if (p.elevation !== undefined) {
-            altitudeXml = `
-            <AltitudeMeters>${p.elevation.toFixed(2)}</AltitudeMeters>`;
+            altitudeXml = `<AltitudeMeters>${p.elevation.toFixed(2)}</AltitudeMeters>`;
         }
 
         const speedMs = p.speed ? (p.speed * 1000 / 3600) : 0;
@@ -2629,24 +2665,13 @@ function saveLogAsTcx() {
         }
 
         // Garmin拡張スキーマ(TPX)に速度を追加
-        const tpxExtensions = `
-              <TPX xmlns="http://www.garmin.com/xmlschemas/ActivityExtension/v2">
-                <Watts>${p.power}</Watts>
-                <Speed>${speedMs.toFixed(2)}</Speed>
-              </TPX>`;
+        const tpxExtensions = `<TPX xmlns="http://www.garmin.com/xmlschemas/ActivityExtension/v2"><Watts>${p.power}</Watts><Speed>${speedMs.toFixed(2)}</Speed></TPX>`;
 
-        return `
-          <Trackpoint>
-            <Time>${p.timestamp}</Time>${positionXml}${altitudeXml}
-            <DistanceMeters>${p.distance.toFixed(2)}</DistanceMeters>
-            <HeartRateBpm>
-              <Value>${p.heartRate}</Value>
-            </HeartRateBpm>
-            <Cadence>${p.cadence}</Cadence>
-            <Extensions>
-              ${tpxExtensions}
-            </Extensions>
-          </Trackpoint>`;
+        return `<Trackpoint><Time>${p.timestamp}</Time>${positionXml}${altitudeXml}` +
+            `<DistanceMeters>${p.distance.toFixed(2)}</DistanceMeters>` +
+            `<HeartRateBpm><Value>${p.heartRate}</Value></HeartRateBpm>` +
+            `<Cadence>${p.cadence}</Cadence>` +
+            `<Extensions>${tpxExtensions}</Extensions></Trackpoint>\n`;
     }).join('');
 
     const lapStartTimeISO = new Date(logStartTime).toISOString();
@@ -2666,7 +2691,8 @@ function saveLogAsTcx() {
         <Calories>${Math.round(totalCalories)}</Calories>
         <Intensity>Active</Intensity>
         <TriggerMethod>Manual</TriggerMethod>
-        <Track>${trackpointsXml}</Track>
+        <Track>
+${trackpointsXml}        </Track>
       </Lap>
     </Activity>
   </Activities>
