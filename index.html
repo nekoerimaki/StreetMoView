@@ -9,34 +9,28 @@
 
 <body>
     <div id="main-container">
-        <div class="controls-area">
-            <div class="control-groups">
-                <button id="hide-toolbar-button" title="ツールバーを隠す">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24"
-                        height="24">
-                        <path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z" />
-                    </svg>
-                </button>
-
-                <div class="dropdown-container">
-                    <button id="route-settings-button" data-i18n="routeSettings">経路設定</button>
-                    <div class="dropdown-content" id="route-settings-dropdown">
-                        <input type="text" id="origin-input" placeholder="出発地: 例. 東京駅"
-                            data-i18n-placeholder="originPlaceholder">
-                        <input type="text" id="destination-input" placeholder="目的地: 例. 渋谷スクランブル交差点"
-                            data-i18n-placeholder="destinationPlaceholder">
-                        <button id="route-button" data-i18n="searchRoute">経路を検索</button>
-                        <button id="load-gpx-button" data-i18n="loadGpx">GPXを読み込む</button>
-                    </div>
-                    <input type="file" id="gpx-file-input" accept=".gpx" style="display: none;">
-                </div>
+        <div id="split-container">
+            <div id="street-view"></div>
+            <div id="map"></div>
+            <div id="message-box"></div>
+            <div id="speed-overlay">
+                <span id="speed-value">0<span class="decimal-small">.0</span></span>
+                <span id="speed-overlay-row2">
+                    <span id="log-rec-indicator"></span>
+                    <span id="speed-unit">km/h</span>
+                </span>
+            </div>v
+            <div id="main-overlay">
                 <div class="action-group">
-                    <label for="speed-input" data-i18n="speed">速度 (km/時):</label>
-                    <input type="number" id="speed-input" value="0" min="1" max="60">
-                    <button id="toggle-tour-button" disabled data-i18n="startTour">ツアー開始</button>
-                    <button id="ble-connect-button" data-i18n="connectPower">パワーソースに接続</button>
-                    <button id="hr-connect-button" data-i18n="connectHr">心拍計に接続</button>
-                    <button id="log-toggle-button" data-i18n="startLog">ログ開始</button>
+                    <button id="toggle-tour-button">
+                        <svg fill="white" viewBox="0 0 10 10">
+                            <path d="M3,2 V8 L8,5 Z" />
+                        </svg>
+                    </button>
+                    <div id="speed-input-container">
+                        <label for="speed-input" data-i18n="speed">速度 (km/時):</label>
+                        <input type="number" id="speed-input" value="0" min="1" max="60">
+                    </div>
                     <div class="mode-switcher" id="split-ratio-switcher">
                         <button data-ratio="10:0">SV</button>
                         <button data-ratio="7:3">7:3</button>
@@ -44,115 +38,131 @@
                         <button data-ratio="3:7">3:7</button>
                         <button data-ratio="0:10">Map</button>
                     </div>
+                    <button id="settings-button" title="設定" data-i18n="settings">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24"
+                            height="24">
+                            <path
+                                d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z" />
+                        </svg>
+                        <!-- <span data-i18n="settings">設定</span> -->
+                    </button>
+                    <button id="fullscreen-button" title="フルスクリーン">
+                        <svg class="icon-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                            fill="currentColor" width="28" height="28">
+                            <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
+                        </svg>
+                        <svg class="icon-exit-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                            fill="currentColor" width="28" height="28" style="display: none;">
+                            <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
+                        </svg>
+                    </button>
                 </div>
             </div>
-            <div class="dropdown-container" id="settings-container">
-                <button id="settings-button" title="設定" data-i18n="settings">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24"
-                        height="24">
-                        <path
-                            d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z" />
-                    </svg>
-                    <span data-i18n="settings">設定</span>
-                </button>
-                <div class="dropdown-content" id="settings-dropdown">
+            <div id="settings-popup">
+                <div class="settings-item">
+                    <label for="load-gpx-button" data-i18n="loadRoute">経路読込み</label>
+                    <button id="load-gpx-button" class="settings-button" data-i18n="loadGpx">GPXを読み込む</button>
+                    <input type="file" id="gpx-file-input" accept=".gpx" style="display: none;">
+                    <label for="lang-switcher" data-i18n="uiLanguage">UI言語</label>
                     <div id="lang-switcher">
                         <button data-lang="ja" class="lang-btn active">日本語</button>
                         <button data-lang="en" class="lang-btn">English</button>
                     </div>
-                    <div class="settings-item">
-                        <label for="voice-guidance-toggle" data-i18n="voiceGuidance">音声ガイダンス</label>
-                        <div>
-                            <label class="switch">
-                                <input type="checkbox" id="voice-guidance-toggle">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
+                    <button class="popup-close-btn">&times;</button>
+                </div>
+                <div class="settings-item">
+                    <label for="ble-connect-button" data-i18n="powerSource">パワーソース</label>
+                    <button id="ble-connect-button" data-i18n="connect">接続</button>
+                    <label for="hr-connect-button" data-i18n="heartRate">心拍計</label>
+                    <button id="hr-connect-button" data-i18n="connect">接続</button>
+                    <label for="log-toggle-button" data-i18n="logging">ログ記録</label>
+                    <button id="log-toggle-button" data-i18n="startLog">開始</button>
+                </div>
+
+                <div class="settings-item">
+                    <label for="voice-guidance-toggle" data-i18n="voiceGuidance">音声ガイダンス</label>
+                    <div>
+                        <label class="switch">
+                            <input type="checkbox" id="voice-guidance-toggle">
+                            <span class="slider"></span>
+                        </label>
                     </div>
-                    <div class="settings-item">
-                        <label for="voice-select" data-i18n="voiceSelect">声色</label>
-                        <select id="voice-select" disabled></select>
-                    </div>
-                    <div class="settings-item">
+                    <label for="voice-select" data-i18n="voiceSelect">声色</label>
+                    <select id="voice-select" disabled></select>
+                </div>
+                <div class="settings-item">
+                    <div class="input-number-item">
                         <label for="geocode-interval-input" data-i18n="geocodeInterval">住所確認の間隔 (m)</label>
                         <input type="number" id="geocode-interval-input" min="100" max="5000" step="100">
                     </div>
-                    <div class="settings-item">
-                        <label for="auto-boost-threshold" data-i18n="autoBoostThresholdLabel">自動ブースト勾配 (%)</label>
+                    <div class="input-number-item">
+                        <label for="auto-boost-threshold" data-i18n="autoBoostThresholdLabel">自動ブースト勾配(%)</label>
                         <input type="number" id="auto-boost-threshold" min="0" max="50" step="1">
                     </div>
-                    <div class="settings-item">
+                </div>
+                <div class="settings-item">
+                    <div class="input-number-item">
                         <label for="gradient-limiter-input" data-i18n="gradientLimiterLabel">勾配リミッター (%)</label>
                         <input type="number" id="gradient-limiter-input" min="0" max="99" step="1">
                     </div>
-                    <div class="settings-item">
+                    <div class="input-number-item">
+
                         <label for="speed-limiter-input" data-i18n="speedLimiterLabel">速度リミッター (km/h)</label>
                         <input type="number" id="speed-limiter-input" min="0" max="200" step="5">
                     </div>
                 </div>
             </div>
-            <button id="fullscreen-button" title="フルスクリーン">
+
+        </div>
+
+        <!--ストリートビューカスタムコントロール-->
+        <div id="direction-control-overlay" class="sv-overlay-control">
+            <div class="mode-switcher">
+                <button data-angle="-90" data-i18n="left90">左90°</button>
+                <button data-angle="-45" data-i18n="left45">左45°</button>
+                <button data-angle="0" data-i18n="front" class="active">正面</button>
+                <button data-angle="45" data-i18n="right45">右45°</button>
+                <button data-angle="90" data-i18n="right90">右90°</button>
+            </div>
+        </div>
+        <div id="user-content-toggle-container" class="switch-container sv-overlay-control">
+            <div class="item">
+                <label for="user-content-toggle" data-i18n="userContent">ユーザー投稿</label>
+                <label class="switch">
+                    <input type="checkbox" id="user-content-toggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+        <div id="sv-custom-controls" class="sv-overlay-control">
+            <button id="sv-fullscreen-button" class="sv-control-button" title="フルスクリーン">
                 <svg class="icon-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
-                    width="28" height="28">
+                    width="24" height="24">
                     <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
                 </svg>
                 <svg class="icon-exit-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                    fill="currentColor" width="28" height="28" style="display: none;">
+                    fill="currentColor" width="24" height="24" style="display: none;">
                     <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
                 </svg>
             </button>
+            <div class="sv-zoom-control-group">
+                <button id="sv-zoom-in-button" class="sv-control-button" title="ズームイン">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24"
+                        height="24">
+                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                    </svg>
+                </button>
+                <button id="sv-zoom-out-button" class="sv-control-button" title="ズームアウト">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24"
+                        height="24">
+                        <path d="M19 13H5v-2h14v2z" />
+                    </svg>
+                </button>
+            </div>
         </div>
+        <!--マップ、カスタムコントロール-->
+        <input type="text" id="pac-input" placeholder="場所を検索">
 
-        <div id="split-container">
-            <div id="message-box"></div>
-            <div id="speed-overlay">
-                <span id="speed-value">0<span class="decimal-small">.0</span></span>
-                <span id="speed-unit">km/h</span>
-            </div>
-            <div id="street-view">
-                <!-- 【ストリートビュー】表示方向ボタン -->
-                <div id="direction-control-overlay" class="sv-overlay-control">
-                    <div class="mode-switcher">
-                        <button data-angle="-90" data-i18n="left90">左90°</button>
-                        <button data-angle="-45" data-i18n="left45">左45°</button>
-                        <button data-angle="0" data-i18n="front" class="active">正面</button>
-                        <button data-angle="45" data-i18n="right45">右45°</button>
-                        <button data-angle="90" data-i18n="right90">右90°</button>
-                    </div>
-                </div>
-                <!-- 【ストリートビュー】フルスクリーン・ズームボタン -->
-                <div id="sv-custom-controls" class="sv-overlay-control">
-                    <button id="sv-fullscreen-button" class="sv-control-button" title="フルスクリーン">
-                        <svg class="icon-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                            fill="currentColor" width="24" height="24">
-                            <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
-                        </svg>
-                        <svg class="icon-exit-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                            fill="currentColor" width="24" height="24" style="display: none;">
-                            <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
-                        </svg>
-                    </button>
-                    <div class="sv-zoom-control-group">
-                        <button id="sv-zoom-in-button" class="sv-control-button" title="ズームイン">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24"
-                                height="24">
-                                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                            </svg>
-                        </button>
-                        <button id="sv-zoom-out-button" class="sv-control-button" title="ズームアウト">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24"
-                                height="24">
-                                <path d="M19 13H5v-2h14v2z" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div id="map">
-            </div>
-
-        </div>
-        <!-- 【マップ】フルスクリーン・ズームボタン -->
         <div id="map-custom-controls" class="map-overlay-control">
             <button id="map-fullscreen-button" class="sv-control-button" title="フルスクリーン">
                 <svg class="icon-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
@@ -179,8 +189,7 @@
                 </button>
             </div>
         </div>
-        <!-- 【マップ】表示タイプ・オプション -->
-        <div id="map-controls-container" class="map-overlay-control">
+        <div id="map-controls-container" class="map-overlay-control switch-container">
             <div class="item">
                 <label for="satellite-toggle" data-i18n="satelliteView">航空写真</label>
                 <label class="switch">
@@ -196,13 +205,6 @@
                 </label>
             </div>
             <div class="item">
-                <label for="user-content-toggle" data-i18n="userContent">ユーザー投稿</label>
-                <label class="switch">
-                    <input type="checkbox" id="user-content-toggle" checked>
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="item">
                 <label for="sv-coverage-toggle" data-i18n="svCoverage">SV道路表示</label>
                 <label class="switch">
                     <input type="checkbox" id="sv-coverage-toggle">
@@ -210,6 +212,13 @@
                 </label>
             </div>
         </div>
+        <div id="map-up-control-overlay" class="map-overlay-control">
+            <button data-mapUpDir="NORTH" class="active">北</button>
+            <button data-mapUpDir="HEADING">進行方向</button>
+            <button data-mapUpDir="DESTINATION">経路終点</button>
+            <button data-mapUpDir="TARGET">目標地点</button>
+        </div>
+
         <div id="info-display">
             <div class="info-item">
                 <span class="info-label" data-i18n="totalDist">経路全体</span>
@@ -271,31 +280,51 @@
 
     </div>
 
-    <!-- InfoWindowのテンプレート -->
-    <div id="infowindow-template" style="display: none;">
-        <div class="infowindow-content">
-            <div class="place-name"></div>
+    <!-- 標高グラフのポップアップ (常設) -->
+    <div id="chart-popup" class="popup-container">
+        <div class="item">
+            <span data-i18n="distance">距離</span>: <strong id="distance-value"></strong>
+            <button class="popup-close-btn">&times;</button>
+        </div>
+        <!-- パノラマサムネイル用のプレースホルダー -->
+        <div id="panorama-thumbnail"></div>
+        <button id="jump-confirm-btn" class="infowindow-btn" style="width: 100%; margin-bottom: 12px;"
+            data-i18n="jumpToLocation">この地点にジャンプ</button>
+        <!-- 平坦化ボタンはJSで動的に表示/非表示を切り替える -->
+        <div id="flattening-container" style="display: none;">
+            <div style="font-size: 14px; margin-bottom: 2px;">平坦化勾配: <strong id="flatten-gradiation-value"></strong>
+            </div>
+            <button id="flattening-btn" class="infowindow-btn" style="width: 100%;">この地点まで平坦化</button>
+        </div>
+    </div>
+    <div id="map-popups">
+        <span id="map-point-popup" class="popup-container">
+            <div style="display: flex;">
+                <div class="place-name"></div>
+                <button class="popup-close-btn">&times;</button>
+            </div>
             <div class="place-address"></div>
             <div style="display: flex;">
-                <button class="infowindow-btn" id="set-origin-btn" data-i18n="setAsOrigin">ここへ移動</button>
+                <button class="infowindow-btn" id="set-current-btn" data-i18n="setAsCurrent">ここへ移動</button>
+                <button class="infowindow-btn" id="set-target-btn" data-i18n="setAsTaget">目標地に設定</button>
                 <button class="infowindow-btn" id="set-home-btn" data-i18n="setAsHome"
                     style="background-color: #27ae60;">ホームに設定</button>
             </div>
             <div class="place-distance"></div>
-            <!--<div class="infowindow-buttons">
-                <div class="settings-item">
-                    <label for="travel-mode-switcher" style="flex: 0; font-size:0.9rem;">経路検索：</label>
-                </div>
-            </div>-->
-            <button class="infowindow-btn" id="set-dest-btn"></button>
+            <button class="infowindow-btn" id="set-dest-btn" data-i18n="routeToHere">ここへの経路を検索</button>
             <div class="mode-switcher" style="flex: 1;" id="travel-mode-switcher">
                 <button id="driving-mode-btn" style="flex:1;" data-mode="DRIVING" data-i18n="driving">自動車</button>
                 <button id="bicycling-mode-btn" style="flex:1;" data-mode="BICYCLING" data-i18n="bicycling">自転車</button>
                 <button id="walking-mode-btn" style="flex:1;" data-mode="WALKING" data-i18n="walking">徒歩</button>
             </div>
+        </span>
+        <div id="waypoint-popup" class="popup-container">
+            <div class="item">
+                <button class="infowindow-btn" id="trim-from-waypoint">この先の経路を削除</button>
+                <button class="popup-close-btn">&times;</button>
+            </div>
         </div>
     </div>
-
     <script type="module" src="script/main.js"></script>
 </body>
 
