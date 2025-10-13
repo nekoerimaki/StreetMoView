@@ -1486,11 +1486,14 @@ async function calculateAndDisplayRoute() {
             waypointRouteIndex = waypointMarker.routeIndex;
             if (waypointRouteIndex > currentPointIndex) {
                 //mapPopups.style.marginBottom = 'calc(50% + 10px)';
-                mapPopups.style.marginBottom = Math.floor(map.getDiv().offsetHeight / 2) + 10 + 'px';
+                //mapPopups.style.marginBottom = Math.floor(map.getDiv().offsetHeight / 2) + 10 + 'px';
+                pointedLatLng = routePoints[waypointRouteIndex];
                 mapPopupContainer.style.display = 'none';
                 waypointPopup.style.display = 'flex';
-                showPopup(mapPopups, true);
-                map.panTo(routePoints[waypointRouteIndex]);
+                showPopup(mapPopups, 10);
+                //map.panTo(routePoints[waypointRouteIndex]);
+                // map.panBy(0, -mapHeight / (isTiltView ? 5 : 4));
+                // mapPopups.style.display = 'none;';
 
             }
         });
@@ -1981,11 +1984,14 @@ function setCurrentLatLng() {
 
 let linkedPanos = [];
 
-function getPanoLinks() {
+function getPanoLinks(refresh = false) {
+    if (refresh) {
+        linkedPanos = [];
+    }
     if (linkedPanos.length === 0) {
         const request = {
             location: currentLatLng,
-            radius: 20,
+            radius: 15,
             source: showUserContent ? google.maps.StreetViewSource.DEFAULT : google.maps.StreetViewSource.GOOGLE,
             preference: google.maps.StreetViewPreference.NEAREST
         };
@@ -2020,6 +2026,38 @@ function getPanoLinks() {
         }
     }
 }
+let islinkedPano;
+function findPano(radius, retry = false) {
+    let minIndex = -1;
+    let minDistance = radius + (retry ? 5 : 0);
+    islinkedPano = false;
+    for (let i = 0; i < linkedPanos.length; i++) {
+        const distance = getDistance(currentLatLng, linkedPanos[i].location.latLng);
+        if (distance < minDistance) {
+            minDistance = distance;
+            minIndex = i;
+            islinkedPano = !retry;
+        }
+    }
+    if (minIndex === -1) {
+        if (retry) {
+            return null;
+        }
+        else {
+            getPanoLinks(true);
+            return findPano(radius, true);
+        }
+    }
+    else {
+        console.log(`distance: ${minDistance.toFixed(1)} index: ${minIndex}`);
+        const result = linkedPanos[minIndex];
+        if (minIndex > 0) {
+            linkedPanos = [linkedPanos[minIndex]];
+            getPanoLinks();
+        }
+        return result;
+    }
+}
 let lastingDescription = '';
 let lastingDescCount = 0;
 function moveStreetView() {
@@ -2028,81 +2066,93 @@ function moveStreetView() {
         return;
     }
 
-    let minIndex = -1;
-    let minDistance = 100;
-    if (lastingDescCount > 2) {
-        for (let i = 0; i < linkedPanos.length; i++) {
-            const distance = getDistance(currentLatLng, linkedPanos[i].location.latLng);
-            if (linkedPanos[i].location.description === lastingDescription && distance < minDistance) {
-                minDistance = distance;
-                minIndex = i;
-            }
-        }
-    }
-    if (minIndex === -1) {
-        minDistance = 100;
-        for (let i = 0; i < linkedPanos.length; i++) {
-            const distance = getDistance(currentLatLng, linkedPanos[i].location.latLng);
-            if (distance < minDistance) {
-                minDistance = distance;
-                minIndex = i;
-            }
-        }
-        console.log(`distance: ${minDistance.toFixed(1)} index: ${minIndex}`);
-    }
-    else {
-        console.log(`distance: ${minDistance.toFixed(1)} index: ${minIndex} desc: ${lastingDescription}`);
+    // if (lastingDescCount > 2) {
+    //     for (let i = 0; i < linkedPanos.length; i++) {
+    //         const distance = getDistance(currentLatLng, linkedPanos[i].location.latLng);
+    //         if (linkedPanos[i].location.description === lastingDescription && distance < minDistance) {
+    //             minDistance = distance;
+    //             minIndex = i;
+    //         }
+    //     }
+    // }
+    //    if (minIndex === -1) {
+    //        minDistance = 100;
+    // for (let i = 0; i < linkedPanos.length; i++) {
+    //     const distance = getDistance(currentLatLng, linkedPanos[i].location.latLng);
+    //     if (distance < minDistance) {
+    //         minDistance = distance;
+    //         minIndex = i;
+    //     }
+    // }
+    // }
+    // else {
+    //     console.log(`distance: ${minDistance.toFixed(1)} index: ${minIndex} desc: ${lastingDescription}`);
 
-    }
-    if (minIndex !== -1 && minDistance < 20) {
+    // }
+    const pano = findPano(15);
+    if (pano !== null) {
         stopFallbackMode();
         distanceWithoutStreetView = 0;
 
         const currentPanoId = panorama.getPano();
-        const newPanoId = linkedPanos[minIndex].location.pano;
+        const newPanoId = pano.location.pano;
 
         if (newPanoId !== currentPanoId) {
-            panorama.setPano(newPanoId);
+            if (islinkedPano) {
+                panorama.setPano(newPanoId);
 
-            if (linkedPanos[minIndex].location.description === lastingDescription) {
-                lastingDescCount++;
             }
             else {
-                lastingDescCount = 1;
-                lastingDescription = linkedPanos[minIndex].location.description;
+                panorama.setPosition(pano.location.latLng);
             }
-            const listener = panorama.addListener('status_changed', () => {
 
-                // パノラマIDが正常に見つかったか、またはロードが成功したかを確認
-                if (panorama.getStatus() === google.maps.StreetViewStatus.OK) {
-                    google.maps.event.trigger(panorama, 'resize');
+            // if (linkedPanos[minIndex].location.description === lastingDescription) {
+            //     lastingDescCount++;
+            // }
+            // else {
+            //     lastingDescCount = 1;
+            //     lastingDescription = linkedPanos[minIndex].location.description;
+            // }
 
-                    // 2. パノラマIDが本当に切り替わったかを確認
-                    // 異なるパノラマがロードされたことを確実にする
-                    if (panorama.getPano() === newPanoId) {
-
-                        // 3. ロード成功後、setPano() の副作用を待ってから setPov() を実行
-                        // 一部の環境ではわずかなディレイ（setTimeout）が安定性を高める
-                        if (currentPointIndex + 1 < routePoints.length) {
-                            const heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
-                            if (!isNaN(heading)) {
-                                const pano_pitch = gradientToPitch(currentGradient);
-                                setTimeout(() => {
-                                    panorama.setPov({ heading: (heading + directionOffset + 360) % 360, pitch: pano_pitch });
-                                }, 100); // 100ミリ秒のディレイ
-                            }
-                        }
-                    }
-                } else {
-                    // 失敗した場合の処理
-                    console.error(`Pano ID ${nextPanoId} のロードに失敗しました。Status: ${panorama.getStatus()}`);
+            if (currentPointIndex + 1 < routePoints.length) {
+                const heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
+                if (!isNaN(heading)) {
+                    const pano_pitch = gradientToPitch(currentGradient);
+                    panorama.setPov({ heading: (heading + directionOffset + 360) % 360, pitch: pano_pitch });
                 }
+            }
+            // const listener = panorama.addListener('status_changed', () => {
 
-                // 4. 処理が完了したらリスナーを削除し、メモリリークを防ぐ
-                google.maps.event.removeListener(listener);
-            });
-            linkedPanos = [linkedPanos[minIndex]];
-            getPanoLinks();
+            //     // パノラマIDが正常に見つかったか、またはロードが成功したかを確認
+            //     if (panorama.getStatus() === google.maps.StreetViewStatus.OK) {
+            //         google.maps.event.trigger(panorama, 'resize');
+
+            //         // 2. パノラマIDが本当に切り替わったかを確認
+            //         // 異なるパノラマがロードされたことを確実にする
+            //         if (panorama.getPano() === newPanoId) {
+
+            //             // 3. ロード成功後、setPano() の副作用を待ってから setPov() を実行
+            //             // 一部の環境ではわずかなディレイ（setTimeout）が安定性を高める
+            //             if (currentPointIndex + 1 < routePoints.length) {
+            //                 const heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
+            //                 if (!isNaN(heading)) {
+            //                     const pano_pitch = gradientToPitch(currentGradient);
+            //                     setTimeout(() => {
+            //                         panorama.setPov({ heading: (heading + directionOffset + 360) % 360, pitch: pano_pitch });
+            //                     }, 100); // 100ミリ秒のディレイ
+            //                 }
+            //             }
+            //         }
+            //     } else {
+            //         // 失敗した場合の処理
+            //         console.error(`Pano ID ${nextPanoId} のロードに失敗しました。Status: ${panorama.getStatus()}`);
+            //     }
+
+            //     // 4. 処理が完了したらリスナーを削除し、メモリリークを防ぐ
+            //     google.maps.event.removeListener(listener);
+            // });
+            // linkedPanos = [linkedPanos[minIndex]];
+            // getPanoLinks();
         }
 
     }
@@ -3930,10 +3980,10 @@ function openMapLocationMenu(location, place = null) {
     mapPopupContainer.style.display = 'flex';
     waypointPopup.style.display = 'none';
     showPopup(mapPopups, mapPopupOffset);
-    map.panTo(pointedLatLng);
-    map.panBy(0, -mapHeight / (isTiltView ? 5 : 4));
-    //panToOffset(pointedLatLng, -mapHeight / 4);
-    mapPopups.style.display = 'none;';
+    //map.panTo(pointedLatLng);
+    // map.panBy(0, -mapHeight / (isTiltView ? 5 : 4));
+    // //panToOffset(pointedLatLng, -mapHeight / 4);
+    // mapPopups.style.display = 'none;';
 
     // 目的地ボタンのテキストとIDを更新
     // infoWindow.setContent(contentClone);
@@ -3978,15 +4028,13 @@ function showPopup(popup, mapPopupOffset = -1) {
         displayingPopup.style.display = 'none';
     }
     if (mapPopupOffset !== -1) {
-
+        const mapHeight = map.getDiv().offsetHeight; // 画面の高さ (px)
         const listener = google.maps.event.addListener(map, 'idle', function () {
 
-            const mapHeight = map.getDiv().offsetHeight; // 画面の高さ (px)
             const targetPixel = mapOverlay.getProjection().fromLatLngToDivPixel(pointedLatLng);
             //popup.style.marginBottom = mapHeight - targetPixel.y + 'px';
             popup.style.marginBottom = mapHeight / 2 - targetPixel.y + mapPopupOffset + 'px';
             console.log(`${mapHeight} - ${targetPixel.y} = ${(mapHeight - targetPixel.y)}`);
-
 
             // 乱れを防ぐため、displayの切り替えはアニメーション完了後に行う
             popup.style.display = 'flex';
@@ -3995,12 +4043,13 @@ function showPopup(popup, mapPopupOffset = -1) {
             // イベントリスナーは一度実行されたら削除する（重要！）
             google.maps.event.removeListener(listener);
         });
-
+        map.panTo(pointedLatLng);
+        map.panBy(0, -mapHeight / (isTiltView ? 5 : 4));
+        mapPopups.style.display = 'none;';
     }
     else {
         popup.style.display = 'flex';
         displayingPopup = popup;
-
     }
 }
 function hidePopup() {
