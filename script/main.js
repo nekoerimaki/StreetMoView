@@ -2101,8 +2101,8 @@ function moveStreetView(deltaTime) {
             // deltaTimeSinceLastSvUpdate -= STREETVIEW_UPDATE_INTERVAL;
             let heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
 
+            panorama.setPano(pano.location.pano);
             if (linkedPanoHeading !== null) {
-                panorama.setPano(newPanoId);
                 let headingDiff = Math.abs(heading - linkedPanoHeading);
                 headingDiff = Math.min(headingDiff, 360 - headingDiff).toFixed(1);
                 console.log('linkedPano Id=' + newPanoId + ' headingDiff=' + headingDiff);
@@ -2111,9 +2111,7 @@ function moveStreetView(deltaTime) {
                     heading = linkedPanoHeading;
                 }
             }
-            else {
-                panorama.setPosition(pano.location.latLng);
-            }
+
             var didLoad = google.maps.event.addListener(panorama, "status_changed", function () {
                 google.maps.event.removeListener(didLoad);
                 setTimeout(() => {
