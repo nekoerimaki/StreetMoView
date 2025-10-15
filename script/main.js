@@ -2034,9 +2034,21 @@ function findPano(radius, retry = false) {
     let minIndex = -1;
     linkedPanoHeading = null;
     let minDistance = radius + (retry ? 5 : 0);
+    const routeHeading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
+
     for (let i = 0; i < linkedPanos.length; i++) {
         const distance = getDistance(currentLatLng, linkedPanos[i].location.latLng);
-        if (distance < minDistance) {
+        let headingDiff = 0;
+        if (i > 0) {
+            const linkedPanoHeading = linkedPanos[0].links[i - 1].heading;
+            headingDiff = Math.abs(routeHeading - linkedPanoHeading);
+            headingDiff = Math.min(headingDiff, 360 - headingDiff).toFixed(1);
+            console.log(`[${i}] distanceDiff: ${distance.toFixed(1)} headingDiff: ${headingDiff}`);
+        }
+        else {
+            console.log(`[${i}] distanceDiff: ${distance.toFixed(1)}`);
+        }
+        if (distance < minDistance && headingDiff < 15) {
             minDistance = distance;
             minIndex = i;
         }
