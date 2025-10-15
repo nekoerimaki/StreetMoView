@@ -1930,7 +1930,7 @@ function updatePhysics() {
         if (actualSpeedKmh > 0) {
             deltaTimeSinceLastSvUpdate += deltaTime;
             if (deltaTimeSinceLastSvUpdate >= STREETVIEW_UPDATE_INTERVAL) {
-                moveStreetView(deltaTime);
+                moveStreetView();
                 deltaTimeSinceLastSvUpdate -= STREETVIEW_UPDATE_INTERVAL;
             }
         }
@@ -2109,7 +2109,7 @@ function checkPano(panoData) {
 }
 
 
-function moveStreetView(deltaTime) {
+function moveStreetView(userContent = false) {
     // if (linkedPanos.length === 0) {
     //     getPanoLinks();
     //     return;
@@ -2169,7 +2169,8 @@ function moveStreetView(deltaTime) {
     const request = {
         location: currentLatLng,
         radius: 15,
-        source: showUserContent ? google.maps.StreetViewSource.DEFAULT : google.maps.StreetViewSource.GOOGLE,
+        //        source: showUserContent ? google.maps.StreetViewSource.DEFAULT : google.maps.StreetViewSource.GOOGLE,
+        source: userContent ? google.maps.StreetViewSource.DEFAULT : google.maps.StreetViewSource.GOOGLE,
         preference: google.maps.StreetViewPreference.NEAREST
     };
 
@@ -2239,7 +2240,13 @@ function moveStreetView(deltaTime) {
             }
         }).catch((e) => {
             if (e.endpoint === 'STREETVIEW_GET_PANORAMA' && e.code === 'ZERO_RESULTS') {
-                catchNoPanorama();
+                if (!userContent) {
+                    moveStreetView(true);
+                }
+                else {
+                    catchNoPanorama();
+
+                }
             }
             else {
                 console.error(`Error getting panorama data for point ${currentPointIndex}:`, e);
