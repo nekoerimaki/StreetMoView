@@ -302,7 +302,7 @@ function drawElevationChart(currentDistance = 0) {
 
     // 標高データの範囲を計算
     const minElev = Math.min(...routeElevations);
-    const maxElev = Math.max(...routeElevations);
+    const maxElev = Math.max(...routeElevations, minElev + Math.floor(totalDistance / 100));
     const elevRange = maxElev - minElev;
 
     const padding = elevationChartPadding; //{ top: 5, bottom: 20, left: 40, right: 5 };
@@ -1675,6 +1675,8 @@ gpxFileInput.addEventListener('change', (event) => {
             // gpxRoutePolyline.setMap(map);
 
             processRoute(interpolatedPath, elevations);
+            map.panTo(currentLatLng);
+            updateStreetView();
             hidePopup();
         } catch (error) {
             showMessage(uiStrings[currentLang].gpxParseError);
@@ -1725,7 +1727,7 @@ async function updateStreetView() { //!!updateStreetView()
     try {
         const { data } = await streetViewService.getPanorama({
             location: targetPosition,
-            radius: 10,
+            radius: 15,
             source: showUserContent ? google.maps.StreetViewSource.DEFAULT : google.maps.StreetViewSource.GOOGLE,
             preference: google.maps.StreetViewPreference.NEAREST
         });
@@ -1735,26 +1737,26 @@ async function updateStreetView() { //!!updateStreetView()
             stopFallbackMode();
             distanceWithoutStreetView = 0;
 
-            const currentPanoId = panorama.getPano();
-            const newPanoId = data.location.pano;
-            let zoom = 1;
+            // const currentPanoId = panorama.getPano();
+            // const newPanoId = data.location.pano;
+            // let zoom = 1;
 
-            if (newPanoId) {
-                if (newPanoId === currentPanoId) {
-                    const MAX_DISTANCE_FOR_ZOOM = 20; // 20メートル進むと最大ズームに到達
-                    const MAX_ZOOM_INCREASE = 1;     // 最大10度FOVを減少させる
-                    const distanceMoved = Math.min(currentPositionDistance - currentPanoramaDistance, MAX_DISTANCE_FOR_ZOOM);
-                    if (distanceMoved > 0) {
-                        const progress = distanceMoved / MAX_DISTANCE_FOR_ZOOM;
-                        zoom = 1 + progress * MAX_ZOOM_INCREASE;
-                    }
-                }
-                else {
-                    panorama.setPosition(data.location.latLng);
-                    currentPanoramaDistance = currentPositionDistance;
-                    //zoom = 1;
-                }
-            }
+            // if (newPanoId) {
+            //     if (newPanoId === currentPanoId) {
+            //         const MAX_DISTANCE_FOR_ZOOM = 20; // 20メートル進むと最大ズームに到達
+            //         const MAX_ZOOM_INCREASE = 1;     // 最大10度FOVを減少させる
+            //         const distanceMoved = Math.min(currentPositionDistance - currentPanoramaDistance, MAX_DISTANCE_FOR_ZOOM);
+            //         if (distanceMoved > 0) {
+            //             const progress = distanceMoved / MAX_DISTANCE_FOR_ZOOM;
+            //             zoom = 1 + progress * MAX_ZOOM_INCREASE;
+            //         }
+            //     }
+            //     else {
+            panorama.setPano(data.location.pano);
+            //         currentPanoramaDistance = currentPositionDistance;
+            //         //zoom = 1;
+            //     }
+            // }
 
             if (currentPointIndex + 1 < routePoints.length) {
                 const heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
@@ -1926,11 +1928,11 @@ function updatePhysics() {
         updateInfoDisplay();
 
         if (actualSpeedKmh > 0) {
-            // deltaTimeSinceLastSvUpdate += deltaTime;
-            // if (deltaTimeSinceLastSvUpdate >= STREETVIEW_UPDATE_INTERVAL) {
-            moveStreetView(deltaTime);
-            //     deltaTimeSinceLastSvUpdate -= STREETVIEW_UPDATE_INTERVAL;
-            // }
+            deltaTimeSinceLastSvUpdate += deltaTime;
+            if (deltaTimeSinceLastSvUpdate >= STREETVIEW_UPDATE_INTERVAL) {
+                moveStreetView(deltaTime);
+                deltaTimeSinceLastSvUpdate -= STREETVIEW_UPDATE_INTERVAL;
+            }
         }
 
         if (distanceSinceLastGeocode >= geocodeIntervalDistance) {
@@ -2084,66 +2086,89 @@ function findPano(radius, retry = false) {
 }
 let lastingDescription = '';
 let lastingDescCount = 0;
-function moveStreetView(deltaTime) {
-    if (linkedPanos.length === 0) {
-        getPanoLinks();
-        return;
-    }
 
-    const pano = findPano(15);
-    if (pano !== null) {
-        stopFallbackMode();
-        distanceWithoutStreetView = 0;
+function checkPano(panoData) {
+    const currentPanoId = panorama.getPano();
+    const routeHeading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
 
-        const currentPanoId = panorama.getPano();
-        const newPanoId = pano.location.pano;
-
-        if (newPanoId !== currentPanoId) {
-
-            // deltaTimeSinceLastSvUpdate += deltaTime;
-            // if (deltaTimeSinceLastSvUpdate < STREETVIEW_UPDATE_INTERVAL) {
-            //     return;
-            // }
-            // deltaTimeSinceLastSvUpdate -= STREETVIEW_UPDATE_INTERVAL;
-            let heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
-
-            panorama.setPano(pano.location.pano);
-            panorama.setPano(newPanoId);
-            if (linkedPanoHeading !== null) {
-                let headingDiff = Math.abs(heading - linkedPanoHeading);
-                headingDiff = Math.min(headingDiff, 360 - headingDiff).toFixed(1);
-                console.log('linkedPano Id=' + newPanoId + ' headingDiff=' + headingDiff);
-                if (headingDiff < 15) {
-                    console.log('use linkedPanoHeading');
-                    heading = linkedPanoHeading;
-                }
-            }
-            else {
-                panorama.setPano(pano.location.pano);
-            }
-
-            var didLoad = google.maps.event.addListener(panorama, "status_changed", function () {
-                google.maps.event.removeListener(didLoad);
-                setTimeout(() => {
-                    if (!isNaN(heading)) {
-                        const pano_pitch = gradientToPitch(currentGradient);
-                        panorama.setPov({ heading: (heading + directionOffset + 360) % 360, pitch: pano_pitch });
-                    }
-                }); // 100ミリ秒のディレイ
-            });
-
+    for (const link of panoData.links) {
+        if (link.pano === currentPanoId) {
+            console.log('linked pano');
+            return true;
         }
+        let headingDiff = Math.abs(routeHeading - link.heading);
+        headingDiff = Math.min(headingDiff, 360 - headingDiff).toFixed(1);
+        console.log('heading diff= ' + headingDiff);
+        if (headingDiff < 30) {
+            console.log('close heading pano');
+            return true;
+        }
+    }
+    console.log('unlinked pano');
+    return false;
+}
 
-    }
-    else {
-        linkedPanos = [];
-        catchNoPanorama();
-    }
-    return;
+
+function moveStreetView(deltaTime) {
+    // if (linkedPanos.length === 0) {
+    //     getPanoLinks();
+    //     return;
+    // }
+
+    // const pano = findPano(15);
+    // if (pano !== null) {
+    //     stopFallbackMode();
+    //     distanceWithoutStreetView = 0;
+
+    //     const currentPanoId = panorama.getPano();
+    //     const newPanoId = pano.location.pano;
+
+    //     if (newPanoId !== currentPanoId) {
+
+    //         // deltaTimeSinceLastSvUpdate += deltaTime;
+    //         // if (deltaTimeSinceLastSvUpdate < STREETVIEW_UPDATE_INTERVAL) {
+    //         //     return;
+    //         // }
+    //         // deltaTimeSinceLastSvUpdate -= STREETVIEW_UPDATE_INTERVAL;
+    //         let heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
+
+    //         panorama.setPano(pano.location.pano);
+    //         panorama.setPano(newPanoId);
+    //         if (linkedPanoHeading !== null) {
+    //             let headingDiff = Math.abs(heading - linkedPanoHeading);
+    //             headingDiff = Math.min(headingDiff, 360 - headingDiff).toFixed(1);
+    //             console.log('linkedPano Id=' + newPanoId + ' headingDiff=' + headingDiff);
+    //             if (headingDiff < 15) {
+    //                 console.log('use linkedPanoHeading');
+    //                 heading = linkedPanoHeading;
+    //             }
+    //         }
+    //         else {
+    //             panorama.setPano(pano.location.pano);
+    //         }
+
+    //         var didLoad = google.maps.event.addListener(panorama, "status_changed", function () {
+    //             google.maps.event.removeListener(didLoad);
+    //             setTimeout(() => {
+    //                 if (!isNaN(heading)) {
+    //                     const pano_pitch = gradientToPitch(currentGradient);
+    //                     panorama.setPov({ heading: (heading + directionOffset + 360) % 360, pitch: pano_pitch });
+    //                 }
+    //             }); // 100ミリ秒のディレイ
+    //         });
+
+    //     }
+
+    // }
+    // else {
+    //     linkedPanos = [];
+    //     catchNoPanorama();
+    // }
+    // return;
 
     const request = {
         location: currentLatLng,
-        radius: 20,
+        radius: 15,
         source: showUserContent ? google.maps.StreetViewSource.DEFAULT : google.maps.StreetViewSource.GOOGLE,
         preference: google.maps.StreetViewPreference.NEAREST
     };
@@ -2159,39 +2184,60 @@ function moveStreetView(deltaTime) {
                 const newPanoId = data.location.pano;
                 let zoom = 1;
 
-                if (newPanoId) {
-                    if (newPanoId === currentPanoId) {
-                        const MAX_DISTANCE_FOR_ZOOM = 20; // 20メートル進むと最大ズームに到達
-                        const MAX_ZOOM_INCREASE = 1;     // 最大10度FOVを減少させる
-                        const distanceMoved = Math.min(currentPositionDistance - currentPanoramaDistance, MAX_DISTANCE_FOR_ZOOM);
-                        if (distanceMoved > 0) {
-                            const progress = distanceMoved / MAX_DISTANCE_FOR_ZOOM;
-                            zoom = 1 + progress * MAX_ZOOM_INCREASE;
-                        }
-                    }
-                    else {
-                        //panorama.setPosition(data.location.latLng);
-                        //panorama.setPosition(currentLatLng);
-                        panorama.setPano(data.location.pano);
-                        currentPanoramaDistance = currentPositionDistance;
-                        zoom = 1;
-                    }
-                }
+                if (newPanoId !== currentPanoId && checkPano(data)) {
 
-                if (currentPointIndex + 1 < routePoints.length) {
+                    // const statusListener = panorama.addListener('pano_changed', () => {
+                    //     if (panorama.getStatus() === google.maps.StreetViewStatus.OK) {
+
+                    //         // 2. status OKを確認後、リスナーを解除
+                    //         google.maps.event.removeListener(statusListener);
+
+                    //         // 3. タイル画像のロード時間を見積もり、setPovを実行
+                    //         // ユーザー投稿画像や遠距離のジャンプでは、このディレイが必要
+                    //         setTimeout(() => {
                     const heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
                     if (!isNaN(heading)) {
                         const pano_pitch = gradientToPitch(currentGradient);
                         panorama.setPov({ heading: (heading + directionOffset + 360) % 360, pitch: pano_pitch, zoom: zoom });
                     }
-                    findNextPano(data.links, heading);
+                    //         }, 1000); // 300ms程度のディレイを試す
+                    //     }
+                    // });
+                    panorama.setPosition(data.location.latLng);
+                    //     if (newPanoId === currentPanoId) {
+                    //         const MAX_DISTANCE_FOR_ZOOM = 20; // 20メートル進むと最大ズームに到達
+                    //         const MAX_ZOOM_INCREASE = 1;     // 最大10度FOVを減少させる
+                    //         const distanceMoved = Math.min(currentPositionDistance - currentPanoramaDistance, MAX_DISTANCE_FOR_ZOOM);
+                    //         if (distanceMoved > 0) {
+                    //             const progress = distanceMoved / MAX_DISTANCE_FOR_ZOOM;
+                    //             zoom = 1 + progress * MAX_ZOOM_INCREASE;
+                    //         }
+                    //     }
+                    //     else {
+                    //         //panorama.setPosition(data.location.latLng);
+                    //         //panorama.setPosition(currentLatLng);
+                    //         setTimeout(() => {
+                    //             panorama.setPano(data.location.pano);
+                    //         }, 1000);
+                    //         currentPanoramaDistance = currentPositionDistance;
+                    //         zoom = 1;
+                    //     }
+                    // }
+
+                    // if (currentPointIndex + 1 < routePoints.length) {
+                    //     const heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
+                    //     if (!isNaN(heading)) {
+                    //         const pano_pitch = gradientToPitch(currentGradient);
+                    //         panorama.setPov({ heading: (heading + directionOffset + 360) % 360, pitch: pano_pitch, zoom: zoom });
+                    //     }
+                    //     //findNextPano(data.links, heading);
+                    // }
+                } else {
+                    // ストリートビューが見つからなかった場合
+                    catchNoPanorama();
                 }
-            } else {
-                // ストリートビューが見つからなかった場合
-                catchNoPanorama();
             }
-        })
-        .catch((e) => {
+        }).catch((e) => {
             if (e.endpoint === 'STREETVIEW_GET_PANORAMA' && e.code === 'ZERO_RESULTS') {
                 catchNoPanorama();
             }
@@ -3564,7 +3610,7 @@ async function initMap() {
             hidePopup();
             if (isPreviewing) {
                 if (currentLatLng !== null) {
-                    panorama.setPosition(currentLatLng);
+                    // panorama.setPosition(currentLatLng);
                     map.panTo(currentLatLng);
 
                     // ストリートビューの向きも元に戻す
