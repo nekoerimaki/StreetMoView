@@ -19,7 +19,7 @@
                     <span id="log-rec-indicator"></span>
                     <span id="speed-unit">km/h</span>
                 </span>
-            </div>v
+            </div>
             <div id="main-overlay">
                 <div class="action-group">
                     <button id="toggle-tour-button">
@@ -115,110 +115,6 @@
 
         </div>
 
-        <!--ストリートビューカスタムコントロール-->
-        <div id="direction-control-overlay" class="sv-overlay-control">
-            <div class="mode-switcher">
-                <button data-angle="-90" data-i18n="left90">左90°</button>
-                <button data-angle="-45" data-i18n="left45">左45°</button>
-                <button data-angle="0" data-i18n="front" class="active">正面</button>
-                <button data-angle="45" data-i18n="right45">右45°</button>
-                <button data-angle="90" data-i18n="right90">右90°</button>
-            </div>
-        </div>
-        <div id="user-content-toggle-container" class="switch-container sv-overlay-control">
-            <div class="item">
-                <label for="user-content-toggle" data-i18n="userContent">ユーザー投稿</label>
-                <label class="switch">
-                    <input type="checkbox" id="user-content-toggle" checked>
-                    <span class="slider"></span>
-                </label>
-            </div>
-        </div>
-        <div id="sv-custom-controls" class="sv-overlay-control">
-            <button id="sv-fullscreen-button" class="sv-control-button" title="フルスクリーン">
-                <svg class="icon-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
-                    width="24" height="24">
-                    <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
-                </svg>
-                <svg class="icon-exit-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                    fill="currentColor" width="24" height="24" style="display: none;">
-                    <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
-                </svg>
-            </button>
-            <div class="sv-zoom-control-group">
-                <button id="sv-zoom-in-button" class="sv-control-button" title="ズームイン">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24"
-                        height="24">
-                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                    </svg>
-                </button>
-                <button id="sv-zoom-out-button" class="sv-control-button" title="ズームアウト">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24"
-                        height="24">
-                        <path d="M19 13H5v-2h14v2z" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-        <!--マップ、カスタムコントロール-->
-        <input type="text" id="pac-input" placeholder="場所を検索">
-
-        <div id="map-custom-controls" class="map-overlay-control">
-            <button id="map-fullscreen-button" class="sv-control-button" title="フルスクリーン">
-                <svg class="icon-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
-                    width="24" height="24">
-                    <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
-                </svg>
-                <svg class="icon-exit-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                    fill="currentColor" width="24" height="24" style="display: none;">
-                    <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
-                </svg>
-            </button>
-            <div class="sv-zoom-control-group">
-                <button id="map-zoom-in-button" class="sv-control-button" title="ズームイン">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24"
-                        height="24">
-                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                    </svg>
-                </button>
-                <button id="map-zoom-out-button" class="sv-control-button" title="ズームアウト">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24"
-                        height="24">
-                        <path d="M19 13H5v-2h14v2z" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-        <div id="map-controls-container" class="map-overlay-control switch-container">
-            <div class="item">
-                <label for="satellite-toggle" data-i18n="satelliteView">航空写真</label>
-                <label class="switch">
-                    <input type="checkbox" id="satellite-toggle">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="item">
-                <label for="tilt-view-toggle" data-i18n="tiltView" id="tilt-view-label">チルト表示</label>
-                <label class="switch">
-                    <input type="checkbox" id="tilt-view-toggle">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="item">
-                <label for="sv-coverage-toggle" data-i18n="svCoverage">SV道路表示</label>
-                <label class="switch">
-                    <input type="checkbox" id="sv-coverage-toggle">
-                    <span class="slider"></span>
-                </label>
-            </div>
-        </div>
-        <div id="map-up-control-overlay" class="map-overlay-control">
-            <button data-mapUpDir="NORTH" class="active">北</button>
-            <button data-mapUpDir="HEADING">進行方向</button>
-            <button data-mapUpDir="DESTINATION">経路終点</button>
-            <button data-mapUpDir="TARGET">目標地点</button>
-        </div>
-
         <div id="info-display">
             <div class="info-item">
                 <span class="info-label" data-i18n="totalDist">経路全体</span>
@@ -278,6 +174,106 @@
             <canvas id="elevation-chart"></canvas>
         </div>
 
+    </div>
+    <!--ストリートビューカスタムコントロール-->
+    <div id="direction-control-overlay" class="sv-overlay-control">
+        <div class="mode-switcher">
+            <button data-angle="-90" data-i18n="left90">左90°</button>
+            <button data-angle="-45" data-i18n="left45">左45°</button>
+            <button data-angle="0" data-i18n="front" class="active">正面</button>
+            <button data-angle="45" data-i18n="right45">右45°</button>
+            <button data-angle="90" data-i18n="right90">右90°</button>
+        </div>
+    </div>
+    <div id="user-content-toggle-container" class="switch-container sv-overlay-control">
+        <div class="item">
+            <label for="user-content-toggle" data-i18n="userContent">ユーザー投稿</label>
+            <label class="switch">
+                <input type="checkbox" id="user-content-toggle" checked>
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+    <div id="sv-custom-controls" class="sv-overlay-control">
+        <button id="sv-fullscreen-button" class="sv-control-button" title="フルスクリーン">
+            <svg class="icon-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                width="24" height="24">
+                <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
+            </svg>
+            <svg class="icon-exit-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                width="24" height="24" style="display: none;">
+                <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
+            </svg>
+        </button>
+        <div class="sv-zoom-control-group">
+            <button id="sv-zoom-in-button" class="sv-control-button" title="ズームイン">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                </svg>
+            </button>
+            <button id="sv-zoom-out-button" class="sv-control-button" title="ズームアウト">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                    <path d="M19 13H5v-2h14v2z" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!--マップ、カスタムコントロール-->
+    <input type="text" id="pac-input" placeholder="場所を検索">
+
+    <div id="map-custom-controls" class="map-overlay-control">
+        <button id="map-fullscreen-button" class="sv-control-button" title="フルスクリーン">
+            <svg class="icon-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                width="24" height="24">
+                <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
+            </svg>
+            <svg class="icon-exit-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                width="24" height="24" style="display: none;">
+                <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
+            </svg>
+        </button>
+        <div class="sv-zoom-control-group">
+            <button id="map-zoom-in-button" class="sv-control-button" title="ズームイン">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                </svg>
+            </button>
+            <button id="map-zoom-out-button" class="sv-control-button" title="ズームアウト">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                    <path d="M19 13H5v-2h14v2z" />
+                </svg>
+            </button>
+        </div>
+    </div>
+    <div id="map-controls-container" class="map-overlay-control switch-container">
+        <div class="item">
+            <label for="satellite-toggle" data-i18n="satelliteView">航空写真</label>
+            <label class="switch">
+                <input type="checkbox" id="satellite-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div class="item">
+            <label for="tilt-view-toggle" data-i18n="tiltView" id="tilt-view-label">チルト表示</label>
+            <label class="switch">
+                <input type="checkbox" id="tilt-view-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div class="item">
+            <label for="sv-coverage-toggle" data-i18n="svCoverage">SV道路表示</label>
+            <label class="switch">
+                <input type="checkbox" id="sv-coverage-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+    <div id="map-up-control-overlay" class="map-overlay-control">
+        <button data-mapUpDir="NORTH" class="active">北</button>
+        <button data-mapUpDir="HEADING">進行方向</button>
+        <button data-mapUpDir="DESTINATION">経路終点</button>
+        <button data-mapUpDir="TARGET">目標地点</button>
     </div>
 
     <!-- 標高グラフのポップアップ (常設) -->
