@@ -2040,10 +2040,16 @@ function findPano(radius, retry = false) {
         const distance = getDistance(currentLatLng, linkedPanos[i].location.latLng);
         let headingDiff = 0;
         if (i > 0) {
-            const linkedPanoHeading = linkedPanos[0].links[i - 1].heading;
-            headingDiff = Math.abs(routeHeading - linkedPanoHeading);
-            headingDiff = Math.min(headingDiff, 360 - headingDiff).toFixed(1);
-            console.log(`[${i}] distanceDiff: ${distance.toFixed(1)} headingDiff: ${headingDiff}`);
+            if (linkedPanos[0].links[i - 1].heading !== null) {
+                const linkedPanoHeading = linkedPanos[0].links[i - 1].heading;
+                headingDiff = Math.abs(routeHeading - linkedPanoHeading);
+                headingDiff = Math.min(headingDiff, 360 - headingDiff).toFixed(1);
+                console.log(`[${i}] distanceDiff: ${distance.toFixed(1)} headingDiff: ${headingDiff}`);
+
+            }
+            else {
+                console.log('no heading data');
+            }
         }
         else {
             console.log(`[${i}] distanceDiff: ${distance.toFixed(1)}`);
@@ -2102,6 +2108,7 @@ function moveStreetView(deltaTime) {
             let heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
 
             panorama.setPano(pano.location.pano);
+            panorama.setPano(newPanoId);
             if (linkedPanoHeading !== null) {
                 let headingDiff = Math.abs(heading - linkedPanoHeading);
                 headingDiff = Math.min(headingDiff, 360 - headingDiff).toFixed(1);
@@ -2110,6 +2117,9 @@ function moveStreetView(deltaTime) {
                     console.log('use linkedPanoHeading');
                     heading = linkedPanoHeading;
                 }
+            }
+            else {
+                panorama.setPano(pano.location.pano);
             }
 
             var didLoad = google.maps.event.addListener(panorama, "status_changed", function () {
