@@ -2167,8 +2167,8 @@ function moveStreetView(numAttempts = 0/* userContent = false*/) {
     // return;
 
     const attemputParams = [
-        { radius: 10, source: google.maps.StreetViewSource.GOOGLE },
-        { radius: 10, source: google.maps.StreetViewSource.DEFAULT },
+        { radius: 7, source: google.maps.StreetViewSource.GOOGLE },
+        { radius: 7, source: google.maps.StreetViewSource.DEFAULT },
         { radius: 15, source: google.maps.StreetViewSource.GOOGLE },
         { radius: 15, source: google.maps.StreetViewSource.DEFAULT }];
 
@@ -2191,27 +2191,29 @@ function moveStreetView(numAttempts = 0/* userContent = false*/) {
 
             if (checkPano(data)) {
 
-                const statusListener = panorama.addListener('pano_changed', () => {
-                    if (panorama.getStatus() === google.maps.StreetViewStatus.OK) {
+                setTimeout(() => {
+                    const statusListener = panorama.addListener('pano_changed', () => {
+                        if (panorama.getStatus() === google.maps.StreetViewStatus.OK) {
 
-                        // 2. status OKを確認後、リスナーを解除
-                        google.maps.event.removeListener(statusListener);
+                            // 2. status OKを確認後、リスナーを解除
+                            google.maps.event.removeListener(statusListener);
 
-                        // 3. タイル画像のロード時間を見積もり、setPovを実行
-                        // ユーザー投稿画像や遠距離のジャンプでは、このディレイが必要
-                        setTimeout(() => {
-                            const heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
-                            if (!isNaN(heading)) {
-                                const pano_pitch = gradientToPitch(currentGradient);
-                                panorama.setPov({ heading: (heading + directionOffset + 360) % 360, pitch: pano_pitch /*, zoom: zoom*/ });
-                            }
-                        }, 500); // 300ms程度のディレイを試す
+                            // 3. タイル画像のロード時間を見積もり、setPovを実行
+                            // ユーザー投稿画像や遠距離のジャンプでは、このディレイが必要
+                            setTimeout(() => {
+                                const heading = getHeading(routePoints[currentPointIndex], routePoints[currentPointIndex + 1]);
+                                if (!isNaN(heading)) {
+                                    const pano_pitch = gradientToPitch(currentGradient);
+                                    panorama.setPov({ heading: (heading + directionOffset + 360) % 360, pitch: pano_pitch /*, zoom: zoom*/ });
+                                }
+                            }, 500); // 300ms程度のディレイを試す
+                        }
+                    });
+                    if (newPanoId !== currentPanoId) {
+                        panorama.setPosition(data.location.latLng);
+
                     }
-                });
-                if (newPanoId !== currentPanoId) {
-                    panorama.setPosition(data.location.latLng);
-
-                }
+                }, 500); // 300ms程度のディレイを試す
                 //     if (newPanoId === currentPanoId) {
                 //         const MAX_DISTANCE_FOR_ZOOM = 20; // 20メートル進むと最大ズームに到達
                 //         const MAX_ZOOM_INCREASE = 1;     // 最大10度FOVを減少させる
