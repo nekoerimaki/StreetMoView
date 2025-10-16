@@ -2205,7 +2205,7 @@ function moveStreetView(numAttempts = 0/* userContent = false*/) {
                                 const pano_pitch = gradientToPitch(currentGradient);
                                 panorama.setPov({ heading: (heading + directionOffset + 360) % 360, pitch: pano_pitch /*, zoom: zoom*/ });
                             }
-                        }, 300); // 300ms程度のディレイを試す
+                        }, 500); // 300ms程度のディレイを試す
                     }
                 });
                 if (newPanoId !== currentPanoId) {
