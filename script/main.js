@@ -697,6 +697,7 @@ const STREETVIEW_UPDATE_INTERVAL = 2 // 2secごとにストリートビューを
 const PHYSICS_INTERVAL_MS = 500; // 500ms (2Hz)
 let currentLocationMarker;
 let targetLocationMarker;
+let previewLocationMarker;
 //let isTourRunning = false;
 let currentPointIndex = 0; let waypointMarkers = [];
 let startMarker, endMarker;
@@ -2167,8 +2168,8 @@ function moveStreetView(numAttempts = 0/* userContent = false*/) {
     // return;
 
     const attemputParams = [
-        { radius: 7, source: google.maps.StreetViewSource.GOOGLE },
-        { radius: 7, source: google.maps.StreetViewSource.DEFAULT },
+        { radius: 10, source: google.maps.StreetViewSource.GOOGLE },
+        { radius: 10, source: google.maps.StreetViewSource.DEFAULT },
         { radius: 15, source: google.maps.StreetViewSource.GOOGLE },
         { radius: 15, source: google.maps.StreetViewSource.DEFAULT }];
 
@@ -2429,6 +2430,7 @@ function jumpToDistance(newDistance) {
 
     // ストリートビューを即時更新
     updateStreetView();
+    previewLocationMarker.setMap(null);
     isPreviewing = false;
 
     // グラフ上のマーカーも更新
@@ -2632,7 +2634,10 @@ function handleChartClick(event) {
 
     // ストリートビューとマップをプレビュー位置に移動
     panorama.setPosition(previewPosition);
+    previewLocationMarker.setMap(map);
+    previewLocationMarker.setPosition(previewPosition);
     map.panTo(previewPosition);
+
     isPreviewing = true;
 
     const chartPopupDistanceValue = chartPopup.querySelector('#distance-value');
@@ -3498,6 +3503,25 @@ async function initMap() {
         position: targetLocation,
         zIndex: 1,
     });
+
+    previewLocationMarker = new google.maps.Marker({
+        map: null,
+        title: 'プレビュー',
+        // アイコンとしてSVG画像を直接指定する (データURI形式)
+        icon: {
+            url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 384 512">
+                    <path fill="rgba(255, 165, 0, 0.8)" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67a24 24 0 0 1-35.464 0z"/>
+                    <circle cx="192" cy="192" r="64" fill="rgba(255, 255, 255, 0.8)"/>
+                </svg>
+            `)}`,
+            scaledSize: new google.maps.Size(36, 48), // 表示サイズ
+            anchor: new google.maps.Point(18, 48)     // ピンの先端の位置
+        },
+        zIndex: 1,
+    });
+
+
     // 地図上に検索ボックスを作成して配置
     const searchInput = document.getElementById('pac-input');
     mapSearchInput = searchInput;
@@ -3632,6 +3656,7 @@ async function initMap() {
                     updateStreetView();
 
                 }
+                previewLocationMarker.setMap(null);
                 isPreviewing = false;
                 //previewStartIndex = -1;
             }
